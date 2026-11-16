@@ -78,9 +78,9 @@ export function describeDist(d: Dist): string {
     case 'constant':
       return `${fmtMs(d.value)}`;
     case 'exponential':
-      return `exp 均值 ${fmtMs(d.mean)}`;
+      return `exp, mean ${fmtMs(d.mean)}`;
     case 'lognormal':
-      return `中位 ${fmtMs(d.median)}，p99 ${fmtMs(d.p99)}`;
+      return `median ${fmtMs(d.median)}, p99 ${fmtMs(d.p99)}`;
   }
 }
 

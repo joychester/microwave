@@ -1,113 +1,114 @@
-# SimBench：微服务性能仿真工作台
+# SimBench: a microservice performance simulation workbench
 
-拖拽搭建微服务拓扑，调整容量、超时、重试、熔断等参数，注入故障，实时观察瓶颈、SLO 变化和级联故障。同时提供解析模型给出稳态容量估算。
+Build a microservice topology by drag and drop, tune capacity, timeouts, retries and circuit breakers, inject faults, and watch bottlenecks, SLO impact and cascading failures in real time. An analytical model alongside the simulation gives steady-state capacity estimates.
 
-界面支持中文 / English 切换和浅色 / 深色模式（右上角），选择会记在浏览器里。首次打开时跟随浏览器语言和系统主题。
+The UI is in English by default and can be switched to Chinese (中文); light and dark modes are both available (top right). The choice is saved in the browser. On first load it follows the browser language and the system theme.
 
-## 流量模型与运行报告
+中文说明见 [README.zh-CN.md](README.zh-CN.md).
 
-选中任意“流量源”，右侧“流量模型”里按图形或名称选择进入的流量：
+## Traffic models and run reports
 
-- 基础模型：恒定、线性爬坡（也可回落）、阶梯、正弦波、日周期、真实回放（粘贴“秒,流量”数据）
-- 叠加层：尖峰、周期突发、惊群回涌、随机抖动，可叠加多层；尖峰和惊群可以“现在触发”
+Select any traffic source and pick how traffic arrives in the **Traffic model** panel on the right, by picture or by name:
 
-运行中随时修改，曲线预览上的红线标出当前时刻。多个流量源各自有模型，按调用关系在共享组件处叠加（见预置拓扑“多流量源叠加”）。
+- Base models: constant, linear ramp (up or down), step, sine wave, diurnal, and replay (paste `seconds,rps` data)
+- Overlays: spike, periodic burst, thundering herd after an outage, and random noise. Overlays stack; spike and herd can be fired on demand with **Fire now**
 
-点顶部时钟选择运行时长（1 / 2 / 5 / 10 / 30 分钟，仿真时间）。到点自动停止，“运行报告”给出可用性、p99 峰值、SLO 达标时间、拐点（SLO 连续被打破时的入口流量）、最先饱和的组件、各组件峰值利用率、失败原因和成本，并与上一次运行对比，可复制为 Markdown。
+Everything can be changed while the simulation runs; a red line on the curve preview marks the current time. Each traffic source has its own model, and their traffic adds up wherever they share components (see the **Multiple traffic sources** preset).
 
-## 流量分配与缓存模型
+Click the clock in the top bar to pick a run length (1, 2, 5, 10 or 30 minutes of simulated time). The run stops on its own, and the **Run report** shows availability, peak p99, time within SLO, the knee (the incoming rate at which the SLO keeps breaking), the first component to saturate, peak utilization per component, failure causes and cost, compared with the previous run. Reports can be copied as Markdown.
 
-- **互斥分流**：流量源、LB 可以连多条出边，按“分流权重”只选其中一条；Gateway 中前缀相同的路由同样按权重分；服务和缓存的出边勾选“互斥分流”后，同一调用顺序里勾选的出边每次只调一条。连线上直接标出比例（如 90% / 10%），适合金丝雀、A/B、多区域。未勾选的出边仍是“全部调用”（依赖调用）。见预置拓扑“金丝雀发布”。
-- **缓存命中率**：可以直接指定，也可以“按容量推算”：由分片数 × 每分片 key 数、key 总数、访问倾斜度（Zipf）用 Che 近似算出 LRU 稳态命中率。缓存清空或冷启动后从 0 开始，每次成功回源装回一个 key，命中率随之回暖；数据库被回源压慢时，回暖也会被拖慢。见演示场景“缓存冷启动回暖”。
+## Traffic splitting and the cache model
 
-## 挑战模式
+- **Exclusive routing.** Traffic sources and load balancers can have several outgoing edges; each request takes exactly one, chosen by **weight**. Gateway routes with the same prefix are split by weight too. On services and caches, outgoing edges marked **Exclusive choice** within the same call order are reduced to one call per request. Edges show their share (for example 90% / 10%), which covers canaries, A/B tests and multi-region setups. Unmarked edges are still called every time (plain dependencies). See the **Canary release** preset.
+- **Cache hit ratio.** Set it directly, or let it **follow capacity**: the steady-state LRU hit ratio is computed with Che's approximation from shards × keys per shard, total key space and access skew (Zipf). After a flush or a cold start the cache starts at 0 and every successful origin fetch puts one key back, so the hit ratio warms up over time; if origin fetches slow the database down, warm-up slows down too. See the **Cache warm-up** scenario.
 
-点顶部金色的“挑战模式”进入。共 5 关，难度递增：
+## Challenge mode
 
-| 关卡 | 学到什么 |
+Click the gold **Challenge** button in the top bar. Five levels, each harder than the last:
+
+| Level | What it teaches |
 |---|---|
-| 1 第一次扩容 | 实例数、CPU 利用率、自动扩缩容的冷启动 |
-| 2 给数据库减压 | 自己加缓存组件、改调用链路 |
-| 3 重试风暴 | 重试放大、熔断器与降级、排队超时丢弃 |
-| 4 黑色星期五 | 多组件容量规划、Kafka 分区与消费者、成本控制 |
-| 5 混沌猴子 | 随机故障下的整体韧性（每次故障顺序不同） |
+| 1 First scale-out | Instance counts, CPU utilization, autoscaling cold starts |
+| 2 Take load off the DB | Adding a cache yourself and rewiring calls |
+| 3 Retry storm | Retry amplification, circuit breakers and fallbacks, dropping requests that queue too long |
+| 4 Black Friday | Capacity planning across components, Kafka partitions and consumers, cost control |
+| 5 Chaos monkey | Overall resilience under random faults (a different fault order each time) |
 
-规则：错误预算就是血条，失败请求会扣血，血条耗尽即失败；平均成本不能超预算。得分 = 可靠性 500 + 延迟达标 300 + 省钱 200；
-3 颗星 = 过关 + 90% 时间 p99 达标 + 平均成本 ≤ 预算 80%。进度保存在浏览器里。
+Rules: the error budget is your health bar. Failed requests drain it and the level is lost when it runs out; average cost must stay within budget. Score = reliability 500 + latency 300 + cost 200. Three stars = clear the level + p99 within SLO at least 90% of the time + average cost ≤ 80% of budget. Progress is saved in the browser.
 
-关卡定义在 `src/game/levels.ts`（流量曲线、故障时间表、锁定的组件和参数、预算），计分规则在 `src/game/rules.ts`，浏览器和无头测试共用同一套规则。
+Levels are defined in `src/game/levels.ts` (traffic curve, fault schedule, locked components and parameters, budget) and scoring in `src/game/rules.ts`; the browser and the headless tests share the same rules.
 
-`npm run levels` 会用“什么都不做”和“一个合理解法”各跑一遍每一关，用来调整平衡。
+`npm run levels` plays every level twice, once doing nothing and once with a reasonable fix, to check the balance.
 
-## 运行
+## Running
 
 ```bash
 npm install
-npm run dev        # 本地开发，http://localhost:5173
-npm run build      # 产出 dist/index.html（单文件，可直接双击打开）
-npm run sim        # 无头运行所有预置场景，打印时间序列（引擎回归测试）
-npm run sim -- slowdb 200   # 只跑某个场景，仿真 200 秒
-npm run levels     # 关卡平衡测试
-npx tsx scripts/check-traffic.ts   # 流量模型与多源叠加检查
-npx tsx scripts/check-routing-cache.ts   # 分流比例与缓存回暖检查
+npm run dev        # local development, http://localhost:5173
+npm run build      # produces dist/index.html (a single file you can open directly)
+npm run sim        # runs every preset scenario headless and prints the time series (engine regression test)
+npm run sim -- slowdb 200   # one scenario only, 200 simulated seconds
+npm run levels     # level balance test
+npx tsx scripts/check-traffic.ts         # traffic models and multi-source superposition
+npx tsx scripts/check-routing-cache.ts   # split ratios and cache warm-up
 ```
 
-## 结构
+## Layout
 
 ```
-src/engine/          与 UI 无关的仿真内核（可单独在 Node 中运行）
-  types.ts           拓扑、参数、指标快照的类型
-  specs.ts           7 个组件 + 调用边的参数定义（默认值、范围、说明）。表单由它自动生成
-  dist.ts            随机数与分布（lognormal 用中位数 + p99 两个参数）
-  sim.ts             请求级离散事件仿真器
-  analysis.ts        解析层：强制流定律、M/G/c（Erlang C + Allen-Cunneen）、USL、容量规划
-  presets.ts         预置拓扑与演示场景
-  host.ts            按实时速度推进仿真、注入定时故障、输出每秒指标
-  cost.ts            运行成本模型（$/小时）
-  traffic.ts         流量模型：基础模型 + 叠加层，求值与回放解析
-  cachemodel.ts      缓存命中率：Zipf + Che 近似（LRU）
-src/game/            关卡与计分（与界面无关）
-  worker.ts          Web Worker 入口（不可用时自动退回主线程）
-src/ui/              React 界面：React Flow 画布、属性面板、uPlot 图表、容量分析
-  i18n.ts            语言切换：组件里用 t('中文', 'English')；引擎文案统一为 {zh, en}
-  theme.ts           浅色 / 深色的图表配色（均经过色盲与对比度校验）
-  NodeShape.tsx      每种组件的专属轮廓（浏览器窗口、拱门、路由器、多副本、内存条、圆柱、管道）
-  game.ts / GameUI.tsx  挑战模式：选关、简报、HUD、倒计时、结算
-  sound.ts           WebAudio 合成音效（默认关闭）
-  TrafficEditor.tsx  流量模型编辑器（图形卡片、曲线预览）
-  runs.ts / Report.tsx  定时运行与运行报告
-scripts/run-scenarios.ts   无头场景运行器
+src/engine/          simulation core with no UI dependency (runs on its own in Node)
+  types.ts           types for topology, parameters and metric snapshots
+  specs.ts           parameter definitions for the 7 components and the call edge (defaults, ranges, help); forms are generated from it
+  dist.ts            random numbers and distributions (lognormal is given as median + p99)
+  sim.ts             request-level discrete-event simulator
+  analysis.ts        analytical layer: forced flow law, M/G/c (Erlang C + Allen-Cunneen), USL, capacity plans
+  presets.ts         preset topologies and demo scenarios
+  host.ts            advances the simulation in real time, schedules faults, emits per-second metrics
+  cost.ts            running cost model ($/hour)
+  traffic.ts         traffic models: base model + overlays, evaluation and replay parsing
+  cachemodel.ts      cache hit ratio: Zipf + Che's approximation (LRU)
+src/game/            levels and scoring (no UI dependency)
+  worker.ts          Web Worker entry (falls back to the main thread when workers are unavailable)
+src/ui/              React UI: React Flow canvas, inspector, uPlot charts, capacity analysis
+  i18n.ts            language switch: components use t('中文', 'English'); engine text is {zh, en}
+  theme.ts           light and dark chart palettes (checked for color blindness and contrast)
+  NodeShape.tsx      a distinct outline per component (browser window, arch, router, replicas, memory stick, cylinder, pipe)
+  game.ts / GameUI.tsx  challenge mode: level select, briefing, HUD, countdown, results
+  sound.ts           WebAudio synthesized sound effects (off by default)
+  TrafficEditor.tsx  traffic model editor (model cards, curve preview)
+  runs.ts / Report.tsx  timed runs and run reports
+scripts/run-scenarios.ts   headless scenario runner
 ```
 
-## 仿真模型
+## Simulation model
 
-| 组件 | 行为原语 | 关键机制 |
+| Component | Primitives | Key mechanics |
 |---|---|---|
-| 流量源 | 到达过程 | 泊松到达；恒定、周期突发、日周期；客户端超时与重试 |
-| API Gateway | 实例池 + 令牌桶 + 路由 | 按路径前缀路由（最长匹配）；限流返回 429 |
-| Load Balancer | 路由 + 健康检查 | 轮询、随机、最少连接、P2C；故障实例在被摘除前继续接流量 |
-| 微服务 | 实例池（线程）+ CPU 核 + 下游调用 | I/O 部分是纯延迟，CPU 部分排队等核；可选调用下游时占用线程；GC 暂停；排队超时丢弃；HPA 式扩缩容（冷启动、缩容稳定窗口） |
-| 缓存 | 每分片单线程 + 命中/未命中分流 | 热点分片；未命中回源（出边）；cache-aside 回写；缓存超时只覆盖缓存操作本身 |
-| 数据库 | 并行执行槽 + 连接上限 + 读写分离 | USL：S × (1 + α(N−1) + βN(N−1))；排队受最大连接数限制；主从切换 |
-| 消息队列 | 分区缓冲 + 消费组 | 有效并行度 = min(消费者, 分区)；rebalance 暂停；失败重试后进死信 |
-| 调用边 | 超时、重试、熔断、连接池 | 指数退避 + full jitter；重试预算；熔断器三态；每实例连接池，连接数计入数据库上限 |
+| Traffic source | Arrival process | Poisson arrivals; traffic programs (base model + overlays); client timeout and retries |
+| API Gateway | Instance pool + token bucket + router | Longest-prefix path routing; rate limiting returns 429 |
+| Load Balancer | Router + health checks | Round robin, random, least connections, P2C; a failed instance keeps getting traffic until it is taken out |
+| Service | Instance pool (threads) + CPU cores + downstream calls | The I/O part is pure delay, the CPU part queues for a core; optionally holds a thread while calling downstream; GC pauses; drops requests that queue too long; HPA-style autoscaling (cold start, scale-down stabilization) |
+| Cache | One thread per shard + hit/miss split | Hot shard; misses go to the origin (outgoing edge); cache-aside write-back; the cache timeout covers only the cache operation |
+| Database | Parallel execution slots + connection limit + read/write split | USL: S × (1 + α(N−1) + βN(N−1)); queueing bounded by max connections; failover |
+| Message queue | Partitioned buffer + consumer group | Effective parallelism = min(consumers, partitions); rebalance pauses; failed messages retried, then dead-lettered |
+| Call edge | Timeout, retries, circuit breaker, connection pool | Exponential backoff + full jitter; retry budget; three-state breaker; a pool per caller instance, counted against the database connection limit |
 
-调用方超时后，被调用方的工作并不会停止。“白做”指标统计的就是这部分浪费，它是重试风暴和亚稳态故障的根源。
+When a caller times out, the callee keeps working. The **wasted work** metric counts exactly that, and it is the root of retry storms and metastable failures.
 
-## 已知的简化
+## Known simplifications
 
-- 同一服务的所有请求使用同一个处理流程（不区分 endpoint）。路径只在 Gateway 路由时生效
-- 网络延迟是独立抽样，没有带宽和丢包模型
-- 缓存的回源调用挂在缓存节点的出边上，连接池按原始调用方实例计算
-- 解析层不含重试和故障，是稳态参考；动态行为以仿真为准
+- Every request to a service follows the same handler (no per-endpoint handlers); paths only matter for gateway routing
+- Network latency is sampled independently; there is no bandwidth or packet-loss model
+- A cache's origin calls hang off the cache node's outgoing edges, and connection pools are counted per original caller instance
+- The analytical layer ignores retries and faults; it is a steady-state reference, and the simulation is the source of truth for dynamics
 
-## 增加一个组件
+## Adding a component
 
-1. 在 `specs.ts` 的 `NODE_SPECS` 里声明参数和故障类型，标签和说明用 `L('中文', 'English')`（表单会自动出现）
-2. 在 `sim.ts` 的 `deliver()` 中加一个 handler，用 `submit()`（实例池）、`callEdge()`（下游调用）、`intensity()`（故障强度）组合出行为
-3. 如需容量估算，在 `analysis.ts` 的 `latencyOf()` 中补一个分支
-4. 在 `Glyph.tsx` 加图标，在 `App.tsx` 的 `PALETTE` 加入组件面板
+1. Declare its parameters and fault types in `NODE_SPECS` in `specs.ts`, with labels and help as `L('中文', 'English')` (the form appears automatically)
+2. Add a handler in `deliver()` in `sim.ts`, built from `submit()` (instance pool), `callEdge()` (downstream calls) and `intensity()` (fault intensity)
+3. For capacity estimates, add a branch to `latencyOf()` in `analysis.ts`
+4. Add an icon in `Glyph.tsx` and list it in `PALETTE` in `App.tsx`
 
-## 以后做成桌面软件
+## Packaging as a desktop app
 
-引擎不依赖 DOM，可以直接用 Tauri 或 Electron 包装 `dist/`。如果需要更大规模的仿真，可以把 `src/engine` 按同样的接口移植到 Rust，用 `npm run sim` 的输出作为对照基准。
+The engine does not depend on the DOM, so `dist/` can be wrapped directly with Tauri or Electron. For larger simulations, `src/engine` can be ported to Rust behind the same interface, using the output of `npm run sim` as the reference baseline.

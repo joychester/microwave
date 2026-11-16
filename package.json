@@ -1,7 +1,7 @@
 {
   "name": "simbench",
   "version": "1.0.0",
-  "description": "",
+  "description": "Microservice performance simulation workbench: bottlenecks, SLO impact, cascading failure and capacity planning",
   "main": "index.js",
   "scripts": {
     "dev": "vite",

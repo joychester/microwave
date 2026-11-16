@@ -1,134 +1,134 @@
 # =====================================================================
 # Microservice Performance Simulation Workbench
-# 组件参数定义 Schema  v0.1（第一批：流量源 + 6 个组件 + 调用边）
+# Component parameter schema v0.1 (first batch: traffic source + 6 components + call edge)
 # =====================================================================
 #
-# 约定
-#   - 时间单位写在字段名后缀：*_ms 毫秒，*_s 秒
-#   - 速率：rps（每秒请求数），mps（每秒消息数）
-#   - 比例：0.0 ~ 1.0
-#   - default: 默认值；range: 允许范围；calibrate: 可绑定的真实指标（PromQL / OTel）
-#   - primitives: 该组件由哪些行为原语组合而成（引擎实现依据）
+# Conventions
+#   - Time units are a field-name suffix: *_ms milliseconds, *_s seconds
+#   - Rates: rps (requests per second), mps (messages per second)
+#   - Ratios: 0.0 to 1.0
+#   - default: default value; range: allowed range; calibrate: real metric it can be bound to (PromQL / OTel)
+#   - primitives: the behavior primitives the component is composed of (basis for the engine implementation)
 #
-# 行为原语（引擎只实现这 7 种）
-#   ServerPool    c 个 worker + 有限队列，M/G/c/K
-#   Delay         纯延迟，不占资源
-#   Router        按概率 / 规则分流
-#   ResourcePool  连接池 / 信号量，借出-归还，可等待超时
-#   RateLimiter   令牌桶，超限拒绝或排队
-#   StateMachine  熔断器 / 扩缩容 / 主从切换
-#   Buffer        异步队列，积压 = ∫(λ_in − μ_out)dt
+# Behavior primitives (the engine implements only these 7)
+#   ServerPool    c workers + bounded queue, M/G/c/K
+#   Delay         pure delay, holds no resource
+#   Router        split by probability / rules
+#   ResourcePool  connection pool / semaphore: acquire-release, wait with timeout
+#   RateLimiter   token bucket: reject or queue when over the limit
+#   StateMachine  circuit breaker / autoscaling / failover
+#   Buffer        asynchronous queue, backlog = ∫(λ_in − μ_out)dt
 # =====================================================================
 
 schema_version: "0.1"
 
 # ---------------------------------------------------------------------
-# 一、公共类型
+# 1. Common types
 # ---------------------------------------------------------------------
 types:
 
-  # 分布：服务时间、延迟等都用它描述
+  # Distribution: used for service times, latencies and the like
   Distribution:
     oneOf:
       - { dist: constant,    value_ms: number }
       - { dist: exponential, mean_ms: number }
-      - { dist: lognormal,   median_ms: number, p99_ms: number }   # 推荐默认，直观且长尾
-      - { dist: normal,      mean_ms: number, stddev_ms: number }  # 截断为 ≥0
-      - { dist: mixture,     components: [ { weight: number, of: Distribution } ] }  # 双峰：缓存命中/未命中、慢查询
-      - { dist: empirical,   source: string }                      # 从 OTel span 导入的直方图
-    note: "lognormal 用 median + p99 两个参数反推 μ、σ：σ = ln(p99/median) / 2.326"
+      - { dist: lognormal,   median_ms: number, p99_ms: number }   # recommended default: intuitive, long-tailed
+      - { dist: normal,      mean_ms: number, stddev_ms: number }  # truncated at ≥ 0
+      - { dist: mixture,     components: [ { weight: number, of: Distribution } ] }  # bimodal: cache hit/miss, slow queries
+      - { dist: empirical,   source: string }                      # histogram imported from OTel spans
+    note: "lognormal derives μ and σ from median + p99: σ = ln(p99/median) / 2.326"
 
-  # 故障注入：每个组件声明自己支持的故障类型
+  # Fault injection: each component declares the fault types it supports
   FailureInjection:
     fields:
-      type:       { type: string, desc: "组件自定义的故障名，见各组件 failures" }
-      at_s:       { type: number, desc: "仿真开始后第几秒触发" }
-      duration_s: { type: number, desc: "持续时间；null 表示一直持续" }
-      recovery:   { type: enum, values: [instant, linear], default: instant, desc: "结束后瞬间恢复还是线性恢复" }
+      type:       { type: string, desc: "component-specific fault name, see each component's failures" }
+      at_s:       { type: number, desc: "seconds after the simulation starts" }
+      duration_s: { type: number, desc: "duration; null means it never ends" }
+      recovery:   { type: enum, values: [instant, linear], default: instant, desc: "recover instantly or linearly after the fault ends" }
       recovery_s: { type: number, default: 0 }
-      params:     { type: object, desc: "故障参数，例如 multiplier、ratio" }
+      params:     { type: object, desc: "fault parameters, e.g. multiplier, ratio" }
 
-  # 自动扩缩容（作为服务 / Gateway 的属性，第二批再独立成组件）
+  # Autoscaling (a property of services / gateways; may become its own component in a later batch)
   Autoscale:
     fields:
       enabled:                { type: bool,   default: false }
       metric:                 { type: enum,   values: [cpu, concurrency, rps], default: cpu }
-      target:                 { type: number, default: 0.6, desc: "cpu 为利用率；concurrency 为每实例在途数；rps 为每实例 rps" }
+      target:                 { type: number, default: 0.6, desc: "cpu: utilization; concurrency: in-flight per instance; rps: rps per instance" }
       min_instances:          { type: int,    default: 2 }
       max_instances:          { type: int,    default: 20 }
-      sync_period_s:          { type: number, default: 15,  desc: "指标采集 + 决策周期（K8s HPA 默认 15s）" }
+      sync_period_s:          { type: number, default: 15,  desc: "metric collection + decision period (K8s HPA default is 15s)" }
       scale_up_stabilization_s:   { type: number, default: 0 }
       scale_down_stabilization_s: { type: number, default: 300 }
-      cold_start_s:           { type: number, default: 30,  desc: "新实例从创建到可接流量的时间" }
-      warmup_s:               { type: number, default: 0,   desc: "可接流量后性能爬坡时间（JIT、连接预热）" }
-    formula: "desired = ceil(current × metric / target)，clamp 到 [min, max]"
+      cold_start_s:           { type: number, default: 30,  desc: "time from creating an instance until it takes traffic" }
+      warmup_s:               { type: number, default: 0,   desc: "performance ramp after taking traffic (JIT, connection warm-up)" }
+    formula: "desired = ceil(current × metric / target), clamped to [min, max]"
 
-  # 实例池：服务 / Gateway 共用
+  # Instance pool: shared by services and gateways
   InstancePool:
     fields:
       instances:            { type: int, default: 3, range: [1, 1000] }
-      workers_per_instance: { type: int, default: 50, desc: "线程池 / 并发上限 c" }
-      queue_capacity:       { type: int, default: 100, desc: "每实例等待队列上限 K−c；满了直接拒绝（503）" }
-      queue_timeout_ms:     { type: number, default: null, desc: "排队超过此时间直接丢弃（load shedding），null 不启用" }
-      cpu_cores:            { type: number, default: 2, desc: "CPU limit；与 workers 一起决定 CPU 节流" }
-      cpu_fraction:         { type: number, default: 0.7, desc: "服务时间中真正占用 CPU 的比例，其余为等待 I/O" }
+      workers_per_instance: { type: int, default: 50, desc: "thread pool / concurrency limit c" }
+      queue_capacity:       { type: int, default: 100, desc: "per-instance wait queue limit K−c; reject (503) when full" }
+      queue_timeout_ms:     { type: number, default: null, desc: "drop requests that wait longer than this (load shedding); null disables it" }
+      cpu_cores:            { type: number, default: 2, desc: "CPU limit; together with workers it determines CPU throttling" }
+      cpu_fraction:         { type: number, default: 0.7, desc: "share of service time actually on CPU; the rest waits on I/O" }
 
 # ---------------------------------------------------------------------
-# 二、调用边（Edge）：超时 / 重试 / 熔断 / 连接池都挂在这里
+# 2. Call edge: timeouts, retries, circuit breakers and connection pools live here
 # ---------------------------------------------------------------------
 edge:
   primitives: [Delay, ResourcePool, StateMachine]
   fields:
     from:            { type: ref, required: true }
     to:              { type: ref, required: true }
-    endpoint:        { type: string, default: "*", desc: "该边属于上游的哪个处理路径" }
+    endpoint:        { type: string, default: "*", desc: "which upstream handler this edge belongs to" }
     mode:            { type: enum, values: [sync, async], default: sync }
-    calls_per_request: { type: number, default: 1, desc: "强制流定律中的 V；可为小数（概率调用）" }
-    probability:     { type: number, default: 1.0, desc: "此调用发生的概率（条件调用）" }
-    parallel_group:  { type: string, default: null, desc: "同组的边并行发出，完成时间取最大值（fan-out）" }
-    order:           { type: int, default: 0, desc: "同一 handler 中的串行顺序" }
+    calls_per_request: { type: number, default: 1, desc: "V in the forced flow law; may be fractional (probabilistic calls)" }
+    probability:     { type: number, default: 1.0, desc: "probability that this call happens (conditional call)" }
+    parallel_group:  { type: string, default: null, desc: "edges in the same group are sent in parallel; completion is the max (fan-out)" }
+    order:           { type: int, default: 0, desc: "sequential order within one handler" }
     network_latency: { type: Distribution, default: { dist: lognormal, median_ms: 0.5, p99_ms: 3 } }
 
-    timeout_ms:      { type: number, default: 1000, desc: "单次尝试超时" }
-    total_deadline_ms: { type: number, default: null, desc: "含重试的总截止时间；建议设置以防重试叠加" }
+    timeout_ms:      { type: number, default: 1000, desc: "per-attempt timeout" }
+    total_deadline_ms: { type: number, default: null, desc: "overall deadline including retries; recommended so retries cannot stack up" }
 
     retry:
-      max_attempts:     { type: int, default: 1, desc: "1 表示不重试；3 表示最多重试 2 次" }
+      max_attempts:     { type: int, default: 1, desc: "1 means no retries; 3 means up to 2 retries" }
       retry_on:         { type: list, values: [timeout, 5xx, 429, connection_error], default: [timeout, 5xx] }
       backoff:          { type: enum, values: [none, fixed, exponential], default: exponential }
       base_delay_ms:    { type: number, default: 100 }
       max_delay_ms:     { type: number, default: 2000 }
       jitter:           { type: enum, values: [none, full, equal], default: full }
-      retry_budget_ratio: { type: number, default: null, desc: "重试量不超过正常请求的比例（如 0.1），null 不限制" }
+      retry_budget_ratio: { type: number, default: null, desc: "retries may not exceed this share of normal requests (e.g. 0.1); null means unlimited" }
 
     circuit_breaker:
       enabled:              { type: bool,   default: false }
       failure_rate_threshold: { type: number, default: 0.5 }
-      slow_call_threshold_ms: { type: number, default: null, desc: "慢调用也算失败" }
+      slow_call_threshold_ms: { type: number, default: null, desc: "slow calls also count as failures" }
       min_requests:         { type: int,    default: 20 }
       window_s:             { type: number, default: 10 }
       open_duration_s:      { type: number, default: 30 }
       half_open_probes:     { type: int,    default: 5 }
       fallback:             { type: enum, values: [error, default_value, cache], default: error }
 
-    connection_pool:          # 仅对 database / cache 目标生效：调用方每实例一个池
+    connection_pool:          # only for database / cache targets: one pool per caller instance
       size_per_instance:    { type: int,    default: 10 }
       acquire_timeout_ms:   { type: number, default: 1000 }
 
 # ---------------------------------------------------------------------
-# 三、组件定义
+# 3. Components
 # ---------------------------------------------------------------------
 components:
 
   # ===================================================================
-  # 0. 流量源 Client
+  # 0. Traffic source (client)
   # ===================================================================
   traffic_source:
-    primitives: [RateLimiter(作为到达过程生成器), Router]
+    primitives: [RateLimiter(as the arrival process generator), Router]
     fields:
       model:            { type: enum, values: [open, closed], default: open,
-                          desc: "open：按速率到达（互联网流量）；closed：固定用户数 + 思考时间（压测/批处理）" }
-      # --- open 模型 ---
+                          desc: "open: arrivals at a rate (internet traffic); closed: fixed users + think time (load tests / batch)" }
+      # --- open model ---
       arrival:          { type: enum, values: [poisson, deterministic, mmpp], default: poisson }
       base_rps:         { type: number, default: 100 }
       pattern:
@@ -138,20 +138,20 @@ components:
         # diurnal: { peak_rps, trough_rps, period_s }
         # burst:   { every_s, multiplier, duration_s }
         params:         { type: object }
-      mmpp:             { desc: "MMPP 突发：多个状态各有速率与驻留时间", states: [ { rps: number, mean_dwell_s: number } ] }
-      # --- closed 模型 ---
+      mmpp:             { desc: "MMPP bursts: several states, each with its own rate and dwell time", states: [ { rps: number, mean_dwell_s: number } ] }
+      # --- closed model ---
       users:            { type: int, default: 100 }
       think_time:       { type: Distribution, default: { dist: exponential, mean_ms: 1000 } }
-      # --- 请求组成 ---
-      request_mix:      { type: list, desc: "按权重分配到入口 endpoint",
+      # --- request mix ---
+      request_mix:      { type: list, desc: "weights across entry endpoints",
                           default: [ { endpoint: "GET /api", weight: 1.0 } ] }
-      target:           { type: ref, required: true, desc: "通常指向 api_gateway" }
-      # --- 客户端行为 ---
+      target:           { type: ref, required: true, desc: "usually the api_gateway" }
+      # --- client behavior ---
       client_timeout_ms: { type: number, default: 5000 }
-      client_retry:     { $ref: edge.retry, desc: "用户/SDK 侧重试，重试风暴的源头之一" }
+      client_retry:     { $ref: edge.retry, desc: "user / SDK retries, one of the sources of retry storms" }
     failures:
-      - surge:          { params: { multiplier: 5 }, desc: "流量突增 N 倍" }
-      - retry_storm:    { params: { max_attempts: 5 }, desc: "临时把客户端重试调高" }
+      - surge:          { params: { multiplier: 5 }, desc: "traffic jumps N times" }
+      - retry_storm:    { params: { max_attempts: 5 }, desc: "client retries temporarily raised" }
     calibrate:
       base_rps: "sum(rate(http_requests_total{job='gateway'}[5m]))"
 
@@ -164,13 +164,13 @@ components:
       pool:             { $ref: types.InstancePool,
                           default: { instances: 2, workers_per_instance: 1000, queue_capacity: 500, cpu_cores: 2 } }
       base_latency:     { type: Distribution, default: { dist: lognormal, median_ms: 1, p99_ms: 5 } }
-      plugins:          # 按顺序执行；每个插件是本地开销，或者调用外部服务
+      plugins:          # run in order; each plugin is local overhead or a call to an external service
         type: list
         item:
           name:         { type: string, example: "jwt-auth" }
           kind:         { type: enum, values: [local, external] }
-          latency:      { type: Distribution, desc: "kind=local 时的开销" }
-          call:         { type: ref, desc: "kind=external 时调用的服务（生成一条 edge）" }
+          latency:      { type: Distribution, desc: "overhead when kind=local" }
+          call:         { type: ref, desc: "service called when kind=external (creates an edge)" }
           on_failure:   { type: enum, values: [reject, allow], default: reject, desc: "fail-closed / fail-open" }
         default:
           - { name: jwt-auth, kind: local, latency: { dist: lognormal, median_ms: 0.3, p99_ms: 2 } }
@@ -178,8 +178,8 @@ components:
         type: list
         item:
           match:        { type: string, example: "GET /orders/*" }
-          target:       { type: ref, desc: "下游 LB 或服务" }
-          weight:       { type: number, default: 1.0, desc: "灰度：同一 match 多个 target 按权重分流" }
+          target:       { type: ref, desc: "downstream LB or service" }
+          weight:       { type: number, default: 1.0, desc: "canary: several targets with the same match split by weight" }
       rate_limit:
         enabled:        { type: bool, default: false }
         scope:          { type: enum, values: [global, per_route], default: global }
@@ -197,63 +197,63 @@ components:
   # 2. Load Balancer
   # ===================================================================
   load_balancer:
-    primitives: [Router, Delay, StateMachine(健康检查)]
+    primitives: [Router, Delay, StateMachine(health checks)]
     fields:
       layer:            { type: enum, values: [L4, L7], default: L7 }
       algorithm:        { type: enum, values: [round_robin, random, least_conn, p2c, consistent_hash], default: round_robin,
-                          desc: "p2c = power of two choices；对慢节点最鲁棒" }
+                          desc: "p2c = power of two choices; the most robust against slow nodes" }
       added_latency:    { type: Distribution,
-                          default: { dist: lognormal, median_ms: 0.3, p99_ms: 2 }, desc: "L4 可设为 constant 0.05" }
-      max_connections:  { type: int, default: null, desc: "LB 自身连接上限，null 不限" }
+                          default: { dist: lognormal, median_ms: 0.3, p99_ms: 2 }, desc: "for L4 a constant 0.05 is fine" }
+      max_connections:  { type: int, default: null, desc: "the LB's own connection limit; null means unlimited" }
       health_check:
         enabled:        { type: bool, default: true }
         interval_s:     { type: number, default: 10 }
-        unhealthy_threshold: { type: int, default: 3, desc: "连续失败几次摘除 → 故障实例最多存活 interval×threshold 秒" }
+        unhealthy_threshold: { type: int, default: 3, desc: "consecutive failures before removal, so a failed instance lives at most interval × threshold seconds" }
         healthy_threshold:   { type: int, default: 2 }
         check_type:     { type: enum, values: [liveness, latency], default: liveness,
-                          desc: "liveness 只看活着；latency 慢也摘除（更接近 outlier detection）" }
-      target:           { type: ref, required: true, desc: "一个 service（按其实例分流）" }
+                          desc: "liveness checks only that it is up; latency also removes slow instances (closer to outlier detection)" }
+      target:           { type: ref, required: true, desc: "a service (split across its instances)" }
     failures:
-      - uneven_weight:  { params: { skew: 0.5 }, desc: "负载不均，部分实例吃更多流量" }
-    note: "LB 本身通常不是瓶颈；它的价值在于展示分流算法 + 健康检查对尾延迟和故障恢复的影响"
+      - uneven_weight:  { params: { skew: 0.5 }, desc: "uneven load: some instances take more traffic" }
+    note: "An LB is rarely the bottleneck itself; its value is showing how the algorithm and health checks affect tail latency and failure recovery"
 
   # ===================================================================
-  # 3. 无状态服务 Service
+  # 3. Stateless service
   # ===================================================================
   service:
-    primitives: [ServerPool, Delay, StateMachine(扩缩容)]
+    primitives: [ServerPool, Delay, StateMachine(autoscaling)]
     fields:
       pool:             { $ref: types.InstancePool }
-      handlers:         # 每个 endpoint 的处理流程 = 本地计算 + 一组下游调用（由 edge 定义）
+      handlers:         # each endpoint's handler = local compute + a set of downstream calls (defined by edges)
         type: list
         item:
           endpoint:     { type: string, default: "*" }
           weight:       { type: number, default: 1.0 }
           service_time: { type: Distribution, default: { dist: lognormal, median_ms: 10, p99_ms: 60 },
-                          desc: "本地处理时间（不含下游调用）" }
+                          desc: "local processing time (excluding downstream calls)" }
           hold_worker_during_calls: { type: bool, default: true,
-                          desc: "同步阻塞模型：调用下游时仍占用 worker（线程池耗尽向上传播的根源）；false 为异步/非阻塞" }
-          error_rate:   { type: number, default: 0.0, desc: "自身业务错误率" }
+                          desc: "blocking model: the worker stays busy while calling downstream (how thread-pool exhaustion propagates upward); false = async / non-blocking" }
+          error_rate:   { type: number, default: 0.0, desc: "own business error rate" }
       gc:
         enabled:        { type: bool, default: false }
         interval_s:     { type: number, default: 30 }
         pause:          { type: Distribution, default: { dist: lognormal, median_ms: 20, p99_ms: 200 } }
       autoscale:        { $ref: types.Autoscale }
     failures:
-      - slow:           { params: { multiplier: 5 }, desc: "service_time 放大 N 倍（依赖退化、代码回归）" }
+      - slow:           { params: { multiplier: 5 }, desc: "service_time multiplied by N (degraded dependency, code regression)" }
       - instance_down:  { params: { count: 1 } }
       - error_spike:    { params: { error_rate: 0.3 } }
-      - memory_leak:    { params: { slowdown_per_min: 0.05 }, desc: "随时间逐步变慢，直到重启" }
+      - memory_leak:    { params: { slowdown_per_min: 0.05 }, desc: "gets slower over time until restarted" }
     calibrate:
-      service_time: "otel: span self_time 直方图 → empirical"
+      service_time: "otel: span self_time histogram → empirical"
       pool.instances: "kube_deployment_status_replicas"
-    derived_metrics:   # 解析层直接算，UI 实时展示
+    derived_metrics:   # computed by the analytical layer and shown live in the UI
       utilization: "ρ = λ·E[S] / (instances × workers)"
       cpu_util:    "λ·E[S]·cpu_fraction / (instances × cpu_cores)"
-      queue_wait:  "Allen-Cunneen：W_q ≈ ErlangC(c, λ/μ) / (cμ − λ) × (Ca² + Cs²)/2"
+      queue_wait:  "Allen-Cunneen: W_q ≈ ErlangC(c, λ/μ) / (cμ − λ) × (Ca² + Cs²)/2"
 
   # ===================================================================
-  # 4. 缓存 Cache（通用缓存层；preset: redis，以后加 cdn）
+  # 4. Cache (generic cache layer; preset: redis, CDN later)
   # ===================================================================
   cache:
     primitives: [Router(hit/miss), ServerPool, Delay]
@@ -263,20 +263,20 @@ components:
     fields:
       preset:           { type: enum, values: [redis-standalone, redis-cluster], default: redis-cluster }
       shards:           { type: int, default: 6 }
-      workers_per_shard: { type: int, default: 1, desc: "Redis 命令执行单线程" }
+      workers_per_shard: { type: int, default: 1, desc: "Redis executes commands on a single thread" }
       op_latency:       { type: Distribution, default: { dist: lognormal, median_ms: 0.2, p99_ms: 1.5 },
-                          desc: "服务端处理时间，网络延迟在 edge 上" }
+                          desc: "server-side processing time; network latency lives on the edge" }
       hit_ratio:        { type: number, default: 0.9 }
-      hot_key_share:    { type: number, default: 0.0, desc: "落在单个热点分片的流量比例（数据倾斜）" }
-      on_miss:          { type: ref, desc: "未命中时回源的目标，通常是 database" }
+      hot_key_share:    { type: number, default: 0.0, desc: "share of traffic landing on a single hot shard (data skew)" }
+      on_miss:          { type: ref, desc: "origin fetched on a miss, usually a database" }
       miss_policy:
-        populate:       { type: bool, default: true, desc: "cache-aside：回源后回写缓存（额外一次写操作）" }
-        single_flight:  { type: bool, default: false, desc: "同 key 并发未命中只回源一次，防击穿" }
+        populate:       { type: bool, default: true, desc: "cache-aside: write back after the origin fetch (one extra write)" }
+        single_flight:  { type: bool, default: false, desc: "concurrent misses on the same key fetch the origin only once (prevents stampedes)" }
       max_connections:  { type: int, default: 10000 }
     failures:
       - flush:          { params: { hit_ratio: 0.0 }, recovery: linear, recovery_s: 300,
-                          desc: "缓存清空 / 雪崩，命中率逐步恢复" }
-      - shard_down:     { params: { count: 1 }, desc: "该分片 key 全部 miss 或报错" }
+                          desc: "cache flush / avalanche; the hit ratio recovers gradually" }
+      - shard_down:     { params: { count: 1 }, desc: "every key on that shard misses or errors" }
       - hot_key:        { params: { hot_key_share: 0.4 } }
     calibrate:
       hit_ratio: "rate(redis_keyspace_hits_total[5m]) / (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m]))"
@@ -284,16 +284,16 @@ components:
       origin_rps: "λ × (1 − hit_ratio) × calls_per_request"
 
   # ===================================================================
-  # 5. 数据库 Database（Postgres / MySQL）
+  # 5. Database (Postgres / MySQL)
   # ===================================================================
   database:
-    primitives: [ResourcePool, ServerPool, Router(读写分离), StateMachine(主从切换)]
+    primitives: [ResourcePool, ServerPool, Router(read/write split), StateMachine(failover)]
     fields:
       engine:           { type: enum, values: [postgres, mysql], default: postgres }
       primary:
         cpu_cores:      { type: number, default: 8 }
-        max_connections: { type: int, default: 200, desc: "服务端连接上限；所有调用方连接池总和超过它会报错" }
-        active_workers: { type: int, default: null, desc: "实际并行执行数；null 时 = cpu_cores × 2" }
+        max_connections: { type: int, default: 200, desc: "server connection limit; errors when the callers' pools add up to more" }
+        active_workers: { type: int, default: null, desc: "actual parallel executions; null means cpu_cores × 2" }
       replicas:         { type: int, default: 0 }
       replica_lag_ms:   { type: Distribution, default: { dist: lognormal, median_ms: 50, p99_ms: 500 } }
       read_routing:     { type: enum, values: [primary_only, replicas, mixed], default: primary_only }
@@ -308,12 +308,12 @@ components:
           - { name: point_read,  kind: read,  weight: 0.7,  service_time: { dist: lognormal, median_ms: 1,  p99_ms: 8 } }
           - { name: range_read,  kind: read,  weight: 0.15, service_time: { dist: lognormal, median_ms: 15, p99_ms: 120 } }
           - { name: write,       kind: write, weight: 0.15, service_time: { dist: lognormal, median_ms: 3,  p99_ms: 25 } }
-      scalability:      # USL：并发越高，单查询越慢（锁、缓冲池、上下文切换）
-        alpha:          { type: number, default: 0.03, desc: "竞争系数（串行部分）" }
-        beta:           { type: number, default: 0.0005, desc: "一致性系数；>0 时存在吞吐峰值，过后下降" }
-        formula:        "C(N) = N / (1 + α(N−1) + βN(N−1))；有效服务时间 = S × N / C(N)"
+      scalability:      # USL: higher concurrency makes each query slower (locks, buffer pool, context switches)
+        alpha:          { type: number, default: 0.03, desc: "contention coefficient (serial part)" }
+        beta:           { type: number, default: 0.0005, desc: "coherency coefficient; when > 0, throughput peaks and then falls" }
+        formula:        "C(N) = N / (1 + α(N−1) + βN(N−1)); effective service time = S × N / C(N)"
     failures:
-      - failover:       { params: { unavailable_s: 30 }, desc: "主库切换期间写全部失败" }
+      - failover:       { params: { unavailable_s: 30 }, desc: "all writes fail while the primary fails over" }
       - slow_query:     { params: { query_class: string, multiplier: 20 } }
       - lock_contention: { params: { alpha: 0.2 } }
       - replica_lag:    { params: { median_ms: 5000 } }
@@ -321,11 +321,11 @@ components:
       query_classes: "pg_stat_statements: mean_exec_time / calls"
       primary.max_connections: "pg_settings max_connections"
     derived_metrics:
-      conn_demand: "Σ(调用方实例数 × connection_pool.size_per_instance)，超过 max_connections 时告警"
+      conn_demand: "Σ(caller instances × connection_pool.size_per_instance); warn when above max_connections"
       peak_concurrency: "N* = sqrt((1 − α) / β)"
 
   # ===================================================================
-  # 6. 消息队列 Message Queue（Kafka）
+  # 6. Message queue (Kafka)
   # ===================================================================
   message_queue:
     primitives: [Buffer, Delay, StateMachine(rebalance)]
@@ -333,20 +333,20 @@ components:
       engine:           { type: enum, values: [kafka], default: kafka }
       partitions:       { type: int, default: 12 }
       produce_latency:  { type: Distribution, default: { dist: lognormal, median_ms: 3, p99_ms: 20 },
-                          desc: "acks=all 时更高" }
-      broker_max_mps:   { type: number, default: 100000, desc: "集群总写入上限" }
-      retention_messages: { type: int, default: null, desc: "积压超过此值丢消息；null 视为无限" }
+                          desc: "higher with acks=all" }
+      broker_max_mps:   { type: number, default: 100000, desc: "cluster-wide write limit" }
+      retention_messages: { type: int, default: null, desc: "messages are dropped once the backlog exceeds this; null means unlimited" }
       consumer_groups:
         type: list
         item:
           name:         { type: string }
-          consumer:     { type: ref, desc: "消费者 service；每条消息走其 handler 处理" }
-          consumers:    { type: int, default: 6, desc: "有效并行度 = min(consumers, partitions)" }
+          consumer:     { type: ref, desc: "consumer service; each message runs through its handler" }
+          consumers:    { type: int, default: 6, desc: "effective parallelism = min(consumers, partitions)" }
           batch_size:   { type: int, default: 1 }
           poll_interval_ms: { type: number, default: 100 }
-          rebalance_pause_s: { type: number, default: 10, desc: "消费者数变化时整组暂停消费" }
+          rebalance_pause_s: { type: number, default: 10, desc: "the whole group stops consuming when the consumer count changes" }
           max_processing_ms: { type: number, default: 300000,
-                          desc: "超过即被踢出组触发 rebalance（max.poll.interval.ms）" }
+                          desc: "exceeding it kicks the consumer out and triggers a rebalance (max.poll.interval.ms)" }
           on_failure:   { type: enum, values: [retry_inline, dead_letter, skip], default: retry_inline }
     failures:
       - consumer_crash: { params: { count: 2 } }
@@ -355,26 +355,26 @@ components:
     calibrate:
       consumer_lag: "kafka_consumergroup_lag"
     derived_metrics:
-      consume_capacity_mps: "min(consumers, partitions) × batch_size / E[处理时间]"
-      lag_growth_mps: "λ_in − consume_capacity_mps；>0 时积压线性增长"
+      consume_capacity_mps: "min(consumers, partitions) × batch_size / E[processing time]"
+      lag_growth_mps: "λ_in − consume_capacity_mps; when > 0 the backlog grows linearly"
       time_to_drain_s: "lag / (consume_capacity_mps − λ_in)"
 
 # ---------------------------------------------------------------------
-# 四、所有组件统一输出的指标（引擎每个采样周期产出）
+# 4. Metrics every component emits (the engine produces them each sampling period)
 # ---------------------------------------------------------------------
 metrics:
   sample_interval_s: 1
   per_component:
-    - throughput_rps          # 完成数
-    - goodput_rps             # 在客户端超时前成功返回的数量
-    - arrival_rps             # 含重试的到达量 → 与入口流量对比得到放大系数
-    - utilization             # worker 占用率
+    - throughput_rps          # completions
+    - goodput_rps             # successes returned before the client timeout
+    - arrival_rps             # arrivals including retries; compared with incoming traffic it gives the amplification factor
+    - utilization             # worker occupancy
     - cpu_utilization
     - queue_length
     - in_flight
     - latency: [p50, p90, p99, p999, mean]
     - errors_by_cause: [timeout, rejected_queue_full, rejected_rate_limit, circuit_open, pool_acquire_timeout, upstream_5xx, business_error]
-    - instances               # 扩缩容时变化
+    - instances               # changes with autoscaling
   per_edge:
     - calls_rps
     - retries_rps
@@ -382,15 +382,15 @@ metrics:
     - pool_wait_ms: [p50, p99]
   system:
     - end_to_end_latency: [p50, p99]
-    - availability            # 1 − 失败请求 / 总请求
-    - slo_burn_rate           # 错误率 / (1 − SLO)
-    - retry_amplification     # 全系统到达量 / 入口流量
+    - availability            # 1 − failed requests / total requests
+    - slo_burn_rate           # error rate / (1 − SLO)
+    - retry_amplification     # system-wide arrivals / incoming traffic
 
 # ---------------------------------------------------------------------
-# 五、示例拓扑（同时作为引擎的第一个端到端测试用例）
+# 5. Example topology (also the engine's first end-to-end test case)
 # ---------------------------------------------------------------------
 example_topology:
-  name: "电商下单 - 参考架构"
+  name: "E-commerce checkout - reference architecture"
   slo: { availability: 0.999, latency_p99_ms: 500 }
   nodes:
     - { id: client,   type: traffic_source, target: gw, base_rps: 500, client_timeout_ms: 3000,
@@ -414,8 +414,8 @@ example_topology:
         circuit_breaker: { enabled: true } }
     - { from: order-svc,   to: kafka, mode: async }
     - { from: fulfill-svc, to: pg,    connection_pool: { size_per_instance: 10 } }
-  scenarios:   # 预置演示场景
-    - { name: "缓存雪崩",  inject: { node: redis, type: flush, at_s: 60, duration_s: 10 } }
-    - { name: "DB 变慢导致线程池耗尽", inject: { node: pg, type: slow_query, at_s: 60, params: { query_class: write, multiplier: 20 } } }
-    - { name: "重试风暴",  inject: { node: product-svc, type: slow, at_s: 60, duration_s: 30, params: { multiplier: 8 } } }
-    - { name: "消费积压",  inject: { node: client, type: surge, at_s: 60, duration_s: 120, params: { multiplier: 3 } } }
+  scenarios:   # preset demo scenarios
+    - { name: "Cache avalanche",  inject: { node: redis, type: flush, at_s: 60, duration_s: 10 } }
+    - { name: "Slow DB exhausts thread pools", inject: { node: pg, type: slow_query, at_s: 60, params: { query_class: write, multiplier: 20 } } }
+    - { name: "Retry storm",  inject: { node: product-svc, type: slow, at_s: 60, duration_s: 30, params: { multiplier: 8 } } }
+    - { name: "Consumer backlog",  inject: { node: client, type: surge, at_s: 60, duration_s: 120, params: { multiplier: 3 } } }
