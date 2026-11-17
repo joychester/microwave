@@ -27,6 +27,22 @@ Click the clock in the top bar to pick a run length (1, 2, 5, 10 or 30 minutes o
 
 **Latency SLO percentile.** The latency SLO is set on the traffic source and measured at **p95** by default; switch it to **p99** under the traffic source's SLO settings. The top bar, node cards, charts, SLO check and run reports all follow that choice. Average latency is shown alongside it in the top bar, the inspector, the latency charts and the run report. Challenge mode always uses p99, so level scores stay comparable.
 
+## The e-commerce reference
+
+The default preset, **E-commerce checkout reference**, is a small online shop with 4 services, 1 third-party API and 15 calls:
+
+| Component | Role | Calls |
+|---|---|---|
+| API Gateway | Routes `/products` (70%) and `/orders` (30%) | Catalog LB, Orders LB |
+| Catalog service | Product pages | Redis ×3 and Pricing, in parallel |
+| Orders service | Orders | Catalog and Pricing in parallel → Payment provider (half of requests, the ones that place an order) → Postgres → Kafka |
+| Pricing service | Current price of a product or a cart; a hard dependency on both paths | none: price rules sit in an in-process cache |
+| Payment provider API | Third-party payment | none |
+| Fulfillment service | Consumes order events from Kafka | Postgres |
+| Redis, Postgres, Kafka | Cache, database, order event stream | Redis falls back to Postgres on a miss |
+
+Challenge levels use the same shop without Pricing and the payment provider, so their balance stays as designed.
+
 ## Traffic splitting and the cache model
 
 - **Exclusive routing.** Traffic sources and load balancers can have several outgoing edges; each request takes exactly one, chosen by **weight**. Gateway routes with the same prefix are split by weight too. On services and caches, outgoing edges marked **Exclusive choice** within the same call order are reduced to one call per request. Edges show their share (for example 90% / 10%), which covers canaries, A/B tests and multi-region setups. Unmarked edges are still called every time (plain dependencies). See the **Canary release** preset.
@@ -41,6 +57,8 @@ The **Third-party API** component (dashed cloud in the palette) stands for a ser
 - **Quota**: requests per second (a token bucket with a burst allowance) and optionally a cap on calls in flight. Calls over either get **429**, which shows up as "Provider quota (429)" in failure causes.
 - **Cost per 1,000 calls**, added to the running cost. Calls rejected with 429 are not billed.
 - **Faults**: provider slowdown, outage, error spike, and quota cut (throttled to a share of the quota).
+
+The **E-commerce checkout reference** preset includes one: the Orders service calls a **Payment provider API** after checking stock, for the half of `/orders` requests that place an order. (Challenge levels use the reference without it, so their balance is unchanged.)
 
 It is a leaf: it has no outgoing calls. The defenses live on the edge that calls it: timeout, retries, retry budget, circuit breaker and fallback. Its utilization is the share of quota in use, and the Capacity tab plans quota rather than instances. In calibration, its `avg_ms` becomes its response time directly.
 
@@ -70,7 +88,7 @@ Out of the box every service time is a guess. Calibration replaces the guesses w
 ```csv
 name,type,qps,avg_ms,p99_ms,cpu_util,pods,cores_per_pod,threads_per_pod,db_pool_per_pod,max_connections,hit_ratio
 Catalog service,service,625,32.3,,42.5%,8,2,,,,
-Orders service,service,188,60.1,,13.9%,4,2,,20,,
+Orders service,service,188,168,,13.9%,4,2,,20,,
 Postgres,database,488,9.3,,,,,,,200,
 ```
 
@@ -170,6 +188,7 @@ When a caller times out, the callee keeps working. The **wasted work** metric co
 - Every request to a service follows the same handler (no per-endpoint handlers); paths only matter for gateway routing
 - Network latency is sampled independently; there is no bandwidth or packet-loss model
 - A cache's origin calls hang off the cache node's outgoing edges, and connection pools are counted per original caller instance
+- Parallel calls finish with the slowest one; the analytical layer estimates that wait as E[max] of exponential-like latencies, which is close but not exact for long-tailed calls
 - The analytical layer ignores retries and faults; it is a steady-state reference, and the simulation is the source of truth for dynamics
 
 ## Adding a component

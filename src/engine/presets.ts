@@ -19,6 +19,7 @@ const NAMES = {
   multi: N('多流量源叠加', 'Multiple traffic sources'),
   canary: N('金丝雀发布', 'Canary release'), v1: N('商品服务 v1', 'Catalog v1'), v2: N('商品服务 v2（金丝雀）', 'Catalog v2 (canary)'),
   batch: N('批处理任务', 'Batch jobs'), push: N('App 推送', 'App push'), three: N('三层架构', 'Three-tier app'), blank: N('空白画布', 'Blank canvas'),
+  pricing: N('定价服务', 'Pricing service'),
   payment: N('结算与第三方支付', 'Checkout with a payment provider'), checkout: N('结算服务', 'Checkout service'), pay: N('支付商 API', 'Payment provider API'),
 };
 
@@ -31,22 +32,35 @@ function edge(from: NodeCfg, to: NodeCfg, params: Params = {}): EdgeCfg {
   return { id: `${from.id}->${to.id}`, from: from.id, to: to.id, params: { ...edgeDefaultsFor(from.type, to.type), ...params } };
 }
 
-export function referenceTopology(lang: Lang = 'zh'): Topology {
+/**
+ * E-commerce checkout reference. `payment: false` / `pricing: false` leave out the payment provider and
+ * the pricing service; challenge levels use that variant so their balance and scores stay as designed.
+ */
+export function referenceTopology(lang: Lang = 'zh', opts: { payment?: boolean; pricing?: boolean } = {}): Topology {
   LANG = lang;
+  const withPayment = opts.payment ?? true;
+  const withPricing = opts.pricing ?? true;
   const client = node('client', 'client', NAMES.traffic, 0, 280, { rps: 500, mix: '/orders:0.3,/products:0.7', sloAvail: 0.999, sloP99: 500 });
   const gw = node('gw', 'gateway', NAMES.gw, 240, 280, { instances: 2 });
   const lbP = node('lb-product', 'lb', NAMES.lbP, 480, 150, { algorithm: 'round_robin' });
   const lbO = node('lb-order', 'lb', NAMES.lbO, 480, 410, { algorithm: 'p2c' });
   const product = node('product', 'service', NAMES.product, 720, 150, { instances: 6, workers: 50, serviceTime: ln(10, 60) });
   const order = node('order', 'service', NAMES.order, 720, 410, { instances: 3, workers: 40, serviceTime: ln(12, 80) });
-  const redis = node('redis', 'cache', NAMES.redis, 975, 30, { shards: 6, hitRatio: 0.92 });
+  const redis = node('redis', 'cache', NAMES.redis, 975, withPricing ? -20 : 30, { shards: 6, hitRatio: 0.92 });
   const pg = node('pg', 'database', NAMES.pg, 1230, 280, { workers: 8, maxConnections: 200, readTime: ln(3, 30), writeTime: ln(5, 40), readRatio: 0.75 });
-  const kafka = node('kafka', 'queue', NAMES.kafka, 975, 540, { partitions: 12, consumers: 6 });
-  const fulfill = node('fulfill', 'service', NAMES.fulfill, 1230, 540, { instances: 3, workers: 20, serviceTime: ln(20, 120) });
+  const kafka = node('kafka', 'queue', NAMES.kafka, 975, withPricing ? 590 : 540, { partitions: 12, consumers: 6 });
+  const fulfill = node('fulfill', 'service', NAMES.fulfill, 1230, withPricing ? 590 : 540, { instances: 3, workers: 20, serviceTime: ln(20, 120) });
+  // Half of /orders requests place an order and pay; the rest view orders. Payment fees are a share of
+  // the order value, not a per-call API price, so no per-call cost is set.
+  // Pricing: every catalog page and every order needs a price, so it is a hard dependency on the hot path.
+  // Price rules sit in an in-process cache refreshed in the background, so a lookup is a few ms of CPU and
+  // never goes to Redis or Postgres; that keeps it from adding to a cache stampede.
+  const pricing = node('pricing', 'service', NAMES.pricing, 975, 160, { instances: 4, workers: 50, serviceTime: ln(2, 12) });
+  const payment = node('payment', 'external', NAMES.pay, 975, 375, { latency: ln(150, 800), errorRate: 0.002, quotaRps: 300, quotaBurst: 100 });
 
   return {
     name: NAMES.ref[lang],
-    nodes: [client, gw, lbP, lbO, product, order, redis, pg, kafka, fulfill],
+    nodes: [client, gw, lbP, lbO, product, order, redis, pg, kafka, fulfill, ...(withPricing ? [pricing] : []), ...(withPayment ? [payment] : [])],
     edges: [
       edge(client, gw, { timeout: 3000, maxAttempts: 2 }),
       edge(gw, lbP, { match: '/products', timeout: 2000 }),
@@ -56,10 +70,17 @@ export function referenceTopology(lang: Lang = 'zh'): Topology {
       edge(product, redis, { callsPerRequest: 3, timeout: 50, poolSize: 20 }),
       edge(redis, pg, { timeout: 500 }),
       edge(order, product, { order: 0, timeout: 300, maxAttempts: 3, backoffBase: 20 }),
-      edge(order, pg, { order: 1, timeout: 500, poolSize: 20 }),
-      edge(order, kafka, { order: 2, timeout: 200 }),
+      edge(order, pg, { order: withPayment ? 2 : 1, timeout: 500, poolSize: 20 }),
+      edge(order, kafka, { order: withPayment ? 3 : 2, timeout: 200 }),
       edge(kafka, fulfill, { timeout: 10000, maxAttempts: 3 }),
       edge(fulfill, pg, { timeout: 500, poolSize: 10 }),
+      // check stock (0) → pay (1, only orders being placed) → write the order (2) → publish (3)
+      // price lookups run in parallel with the catalog read (product) and the stock check (order)
+      ...(withPricing ? [
+        edge(product, pricing, { order: 0, timeout: 200, maxAttempts: 2, backoffBase: 20 }),
+        edge(order, pricing, { order: 0, timeout: 200, maxAttempts: 2, backoffBase: 20 }),
+      ] : []),
+      ...(withPayment ? [edge(order, payment, { order: 1, probability: 0.5, timeout: 3000, maxAttempts: 1 })] : []),
     ],
   };
 }

@@ -59,7 +59,7 @@ function dbReliefTopo(lang: Lang): Topology {
 }
 
 function ref(lang: Lang, zh: string, en: string): Topology {
-  const t = referenceTopology(lang);
+  const t = referenceTopology(lang, { payment: false, pricing: false });
   t.name = lang === 'en' ? en : zh;
   return t;
 }

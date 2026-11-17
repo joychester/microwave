@@ -138,7 +138,9 @@ export function analyze(topo: Topology, targetRps?: number, targetUtil = 0.7, tS
         return tot > 0 ? Math.max(0, num(e.p, 'weight')) / tot : 1 / set.length;
       })() : 1;
       const r = share * num(e.p, 'probability') * Math.max(1, num(e.p, 'callsPerRequest')) * (net(e.p) + latencyOf(e.to));
-      groupMax = e.p.choice ? groupMax + r : Math.max(groupMax, r);
+      // Parallel calls finish with the slowest one. E[max] is above the larger mean; for exponential-like
+      // tails E[max(a, b)] = a + b − ab / (a + b), which is what's used here.
+      groupMax = e.p.choice ? groupMax + r : groupMax + r > 0 ? groupMax + r - (groupMax * r) / (groupMax + r) : 0;
     }
     return (total + groupMax) * factor;
   };
