@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { play } from './sound';
 import {
-  Background, BackgroundVariant, BaseEdge, Controls, EdgeLabelRenderer, Handle, MarkerType, Position, ReactFlow,
+  Background, BackgroundVariant, BaseEdge, ControlButton, Controls, EdgeLabelRenderer, Handle, Position, ReactFlow,
   getBezierPath, useNodesState, useReactFlow,
   type Connection, type Edge, type EdgeProps, type Node, type NodeProps,
 } from '@xyflow/react';
@@ -153,11 +153,50 @@ const SimNode = memo(function SimNode({ id, data, selected }: NodeProps<SimNodeT
 });
 
 // ---------------------------------------------------------------- edge
+// Edge width follows traffic volume on a log scale, relative to the run's peak edge rate.
+// Log, because one diagram mixes thousands of calls/s with tens; the exact rate stays on the label.
+const W_MIN = 1.5, W_MAX = 6.5, W_BASE = 5, PEAK_FLOOR = 50;
+function flowWidth(rate: number, peak: number): number {
+  if (rate <= 0.05) return 1.4;
+  const ref = Math.max(peak, PEAK_FLOOR);
+  const f = Math.log10(1 + rate / W_BASE) / Math.log10(1 + ref / W_BASE);
+  return Math.min(W_MAX, W_MIN + (W_MAX - W_MIN) * Math.min(1, f));
+}
+// Arrowheads come in four sizes so they stay in proportion to the line. The line stops short of
+// the target by `inset` and the arrow tip reaches it, so a thick line never pokes out past the tip.
+const ARROWS = [
+  { upTo: 2.6, size: 12 },
+  { upTo: 3.9, size: 15 },
+  { upTo: 5.2, size: 18 },
+  { upTo: Infinity, size: 22 },
+];
+const ARROW_INSET = 0.55;
+function arrowFor(width: number) {
+  const i = ARROWS.findIndex((a) => width <= a.upTo);
+  return { id: `sb-arrow-${i}`, inset: ARROWS[i].size * ARROW_INSET };
+}
+function ArrowDefs({ color }: { color: string }) {
+  return (
+    <svg className="fe-defs" width="0" height="0" aria-hidden="true">
+      <defs>
+        {ARROWS.map((a, i) => (
+          <marker key={i} id={`sb-arrow-${i}`} viewBox="0 0 10 10" refX={10 - 10 * ARROW_INSET} refY="5"
+            markerWidth={a.size} markerHeight={a.size} markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+            <path d="M0 0L10 5L0 10z" fill={color} />
+          </marker>
+        ))}
+      </defs>
+    </svg>
+  );
+}
+
 const FlowEdge = memo(function FlowEdge(props: EdgeProps<FlowEdgeT>) {
-  const { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, markerEnd, data } = props;
+  const { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data } = props;
   const t = useT();
-  const [path, lx, ly] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
   const s = useStore((st) => st.latest?.edges[id] ?? null);
+  const byFlow = useStore((st) => st.flowWidth);
+  const rate = useStore((st) => st.edgeRate[id] ?? 0);
+  const peak = useStore((st) => st.edgePeak);
   const running = useStore((st) => st.running);
   const select = useStore((st) => st.select);
   const calls = s?.calls ?? 0;
@@ -168,15 +207,17 @@ const FlowEdge = memo(function FlowEdge(props: EdgeProps<FlowEdgeT>) {
   let state = calls > 0 ? 'ok' : 'idle';
   if (failShare > 0.005 || retryShare > 0.03) state = 'warn';
   if (failShare > 0.05 || cbOpen) state = 'crit';
-  const width = calls > 0 ? 1.5 + Math.log10(1 + calls) * 1.1 : 1.4;
-  const dur = calls > 0 ? Math.max(0.35, 2.2 - Math.log10(calls) * 0.55) : 0;
+  const width = byFlow ? flowWidth(rate, peak) : 1.8;
+  const arrow = arrowFor(width);
+  const [path, lx, ly] = getBezierPath({ sourceX, sourceY, targetX: targetX - arrow.inset, targetY, sourcePosition, targetPosition });
+  const dur = 1.2;
   const p = data!.cfg.params;
   const match = data!.fromType === 'gateway' && String(p.match ?? '') ? String(p.match) : '';
   const async = !!p.async;
 
   return (
     <>
-      <BaseEdge id={id} path={path} markerEnd={markerEnd} className={`fe fe--${state}${selected ? ' is-sel' : ''}${async ? ' fe--async' : ''}`} style={{ strokeWidth: width }} interactionWidth={20} />
+      <BaseEdge id={id} path={path} markerEnd={`url(#${arrow.id})`} className={`fe fe--${state}${selected ? ' is-sel' : ''}${async ? ' fe--async' : ''}`} style={{ strokeWidth: width }} interactionWidth={20} />
       {calls > 0 && (
         <path d={path} className={`fe-flow fe-flow--${state}${running ? '' : ' is-paused'}`} style={{ strokeWidth: Math.max(1.2, width - 0.6), animationDuration: `${dur}s` }} />
       )}
@@ -202,10 +243,11 @@ const FlowEdge = memo(function FlowEdge(props: EdgeProps<FlowEdgeT>) {
 
 // Requests as particles flying along the edge: green = ok, red = failed, amber flying back = retry.
 const Particles = memo(function Particles({ path, calls, failShare, retryShare, running }: { path: string; calls: number; failShare: number; retryShare: number; running: boolean }) {
-  const n = Math.max(1, Math.min(7, Math.round(Math.log2(1 + calls / 15))));
+  // Particles show that traffic is moving and how it fares (ok / failed / retried); volume is the line width's job.
+  const n = 3;
   const fails = failShare > 0.02 ? Math.max(1, Math.round(n * failShare)) : 0;
   const retries = retryShare > 0.03 ? Math.max(1, Math.round(n * retryShare)) : 0;
-  const dur = Math.max(0.9, 2.4 - Math.log10(1 + calls) * 0.45);
+  const dur = 1.8;
   const items: { kind: 'ok' | 'fail' | 'retry'; delay: number }[] = [];
   for (let i = 0; i < n; i++) items.push({ kind: i < fails ? 'fail' : 'ok', delay: -(i / n) * dur });
   for (let i = 0; i < retries; i++) items.push({ kind: 'retry', delay: -((i + 0.5) / retries) * dur });
@@ -283,6 +325,8 @@ export function Canvas() {
   }, [loadSeq, fitView, inChallenge]);
 
   const markerColor = theme === 'dark' ? '#7d8a97' : '#8593a0';
+  const byFlow = useStore((st) => st.flowWidth);
+  const setFlowWidth = useStore((st) => st.setFlowWidth);
   const edges: FlowEdgeT[] = useMemo(() => {
     const types = new Map(topology.nodes.map((n) => [n.id, n.type]));
     // traffic share for edges that split exclusively
@@ -312,11 +356,10 @@ export function Canvas() {
       id: e.id, source: e.from, target: e.to, type: 'flow' as const,
       selected: selection?.kind === 'edge' && selection.id === e.id,
       deletable: !lockedSet.has(e.from),
-      markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: markerColor, markerUnits: 'userSpaceOnUse' },
       data: { cfg: e, fromType: types.get(e.from)!, share: shares.get(e.id) },
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topology.edges, topology.nodes, selection, markerColor, lockedKey]);
+  }, [topology.edges, topology.nodes, selection, lockedKey]);
 
   const onConnect = useCallback((c: Connection) => {
     const tp = useStore.getState().topology;
@@ -342,6 +385,7 @@ export function Canvas() {
 
   return (
     <div className="canvas" onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }} onDrop={onDrop}>
+      <ArrowDefs color={markerColor} />
       <ReactFlow<SimNodeT, FlowEdgeT>
         nodes={nodes}
         edges={edges}
@@ -365,7 +409,17 @@ export function Canvas() {
         defaultEdgeOptions={{ type: 'flow' }}
       >
         <Background variant={BackgroundVariant.Dots} gap={22} size={1.3} color={theme === 'dark' ? '#2b333c' : '#c3ccd5'} />
-        <Controls showInteractive={false} position="bottom-left" />
+        <Controls showInteractive={false} position="bottom-left">
+          <ControlButton
+            onClick={() => setFlowWidth(!byFlow)}
+            className={byFlow ? 'is-on' : ''}
+            aria-pressed={byFlow}
+            title={byFlow ? t('线宽按流量显示（点击关闭）', 'Edge width follows traffic (click to turn off)') : t('线宽按流量显示（点击打开）', 'Edge width follows traffic (click to turn on)')}
+            aria-label={t('线宽按流量显示', 'Edge width follows traffic')}
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12" strokeWidth="1" /><path d="M2 8h12" strokeWidth="2.2" /><path d="M2 12.5h12" strokeWidth="3.6" /></svg>
+          </ControlButton>
+        </Controls>
       </ReactFlow>
       {topology.nodes.length <= 1 && (
         <div className="canvas-empty">

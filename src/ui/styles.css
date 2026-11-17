@@ -308,7 +308,9 @@ p { margin: 0; }
 .react-flow__node:hover .sn-handle { border-color: var(--ink-2); }
 
 /* edges */
-.react-flow__edge-path.fe { stroke: var(--edge-idle); fill: none; transition: stroke 200ms; }
+.react-flow__edge-path.fe { stroke: var(--edge-idle); fill: none; transition: stroke 200ms, stroke-width 700ms ease-out; }
+@media (prefers-reduced-motion: reduce) { .react-flow__edge-path.fe { transition: none; } }
+.fe-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .react-flow__edge-path.fe--ok { stroke: var(--flow); }
 .react-flow__edge-path.fe--warn { stroke: var(--warn); }
 .react-flow__edge-path.fe--crit { stroke: var(--crit); }
@@ -873,3 +875,7 @@ fieldset.pf:disabled * { cursor: not-allowed; }
 .derived dt { font-size: 11px; color: var(--ink-3); }
 .derived dd { margin: 0; font-size: 15px; font-weight: 600; font-stretch: 80%; }
 .derived p { font-size: 11.5px; color: var(--ink-2); margin-top: 6px; }
+
+/* canvas control: edge width follows traffic */
+.react-flow__controls-button svg path { fill: none; stroke: currentColor; stroke-linecap: round; }
+.react-flow__controls-button.is-on { color: var(--select); }

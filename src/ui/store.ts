@@ -18,9 +18,11 @@ const LS_KEY = 'simbench.topology.v1';
 const LS_PREFS = 'simbench.prefs.v1';
 export type Theme = 'light' | 'dark';
 
-function loadPrefs(): { lang: Lang; theme: Theme } {
+interface Prefs { lang: Lang; theme: Theme; flowWidth: boolean }
+function loadPrefs(): Prefs {
   let lang: Lang = 'en';
   let theme: Theme = 'light';
+  let flowWidth = true;
   try { if (/^zh/i.test(navigator.language)) lang = 'zh'; } catch { /* ignore */ }
   try { if (window.matchMedia('(prefers-color-scheme: dark)').matches) theme = 'dark'; } catch { /* ignore */ }
   try {
@@ -29,11 +31,12 @@ function loadPrefs(): { lang: Lang; theme: Theme } {
       const p = JSON.parse(raw);
       if (p.lang === 'zh' || p.lang === 'en') lang = p.lang;
       if (p.theme === 'light' || p.theme === 'dark') theme = p.theme;
+      if (typeof p.flowWidth === 'boolean') flowWidth = p.flowWidth;
     }
   } catch { /* storage unavailable */ }
-  return { lang, theme };
+  return { lang, theme, flowWidth };
 }
-function savePrefs(p: { lang: Lang; theme: Theme }) {
+function savePrefs(p: Prefs) {
   try { localStorage.setItem(LS_PREFS, JSON.stringify(p)); } catch { /* ignore */ }
 }
 const PREFS = loadPrefs();
@@ -74,6 +77,14 @@ interface State {
   lang: Lang;
   theme: Theme;
   loadSeq: number;
+  /** Edge widths follow traffic volume. */
+  flowWidth: boolean;
+  /** Per-edge calls/s, smoothed over ~3 s. */
+  edgeRate: Record<string, number>;
+  /** Highest smoothed edge rate seen in this run: the reference for edge widths. */
+  edgePeak: number;
+
+  setFlowWidth: (on: boolean) => void;
 
   setLang: (l: Lang) => void;
   setTheme: (t: Theme) => void;
@@ -151,20 +162,28 @@ export const useStore = create<State>((set, get) => ({
   lang: PREFS.lang,
   theme: PREFS.theme,
   loadSeq: 0,
+  flowWidth: PREFS.flowWidth,
+  edgeRate: {},
+  edgePeak: 0,
+
+  setFlowWidth: (on) => {
+    set({ flowWidth: on });
+    savePrefs({ lang: get().lang, theme: get().theme, flowWidth: on });
+  },
 
   setLang: (l) => {
     if (l === get().lang) return;
     const t = translateTopology(get().topology, l);
     set({ lang: l, topology: t });
-    savePrefs({ lang: l, theme: get().theme });
+    savePrefs({ lang: l, theme: get().theme, flowWidth: get().flowWidth });
     scheduleSync(t);
   },
   setTheme: (th) => {
     set({ theme: th });
-    savePrefs({ lang: get().lang, theme: th });
+    savePrefs({ lang: get().lang, theme: th, flowWidth: get().flowWidth });
   },
   setTopology: (t, opts) => {
-    set({ topology: t, selection: null, loadSeq: get().loadSeq + 1 });
+    set({ topology: t, selection: null, loadSeq: get().loadSeq + 1, edgeRate: {}, edgePeak: 0 });
     saveTopology(t);
     if (opts?.reset) get().reset();
     else scheduleSync(t);
@@ -222,7 +241,7 @@ export const useStore = create<State>((set, get) => ({
   reset: () => {
     send({ type: 'pause' });
     send({ type: 'reset', topo: get().topology });
-    set({ running: false, simTime: 0, history: [], latest: null, events: [], unseenEvents: 0, failures: [], pending: [], activeScenario: null, bottleneckId: null });
+    set({ running: false, simTime: 0, history: [], latest: null, events: [], unseenEvents: 0, failures: [], pending: [], activeScenario: null, bottleneckId: null, edgeRate: {}, edgePeak: 0 });
   },
   setSpeed: (v) => { send({ type: 'speed', value: v }); set({ speed: v }); },
   inject: (spec, at_s) => send({ type: 'inject', spec, at_s }),
@@ -239,6 +258,7 @@ export const useStore = create<State>((set, get) => ({
   setScenario: (id) => set({ activeScenario: id }),
 }));
 
+const EDGE_EMA = 1 - Math.exp(-1 / 3);
 let lastFp = '';
 function onHostMessage(ev: MessageEvent) {
   const m = ev.data;
@@ -255,6 +275,20 @@ function onHostMessage(ev: MessageEvent) {
     patch.history = h.length > HISTORY ? h.slice(h.length - HISTORY) : h;
     const latest = m.snaps[m.snaps.length - 1] as Snapshot;
     patch.latest = latest;
+    // Smooth each edge's calls/s (EMA, ~3 s) so widths don't flicker with Poisson noise,
+    // and track the run's peak as a stable reference: one edge spiking never thins the others.
+    const rate: Record<string, number> = { ...st.edgeRate };
+    let peak = st.edgePeak;
+    for (const snap of m.snaps as Snapshot[]) {
+      for (const [eid, es] of Object.entries(snap.edges)) {
+        const prev = rate[eid];
+        const v = prev === undefined ? es.calls : prev + EDGE_EMA * (es.calls - prev);
+        rate[eid] = v;
+        if (v > peak) peak = v;
+      }
+    }
+    patch.edgeRate = rate;
+    patch.edgePeak = peak;
     let best: string | null = null;
     let bv = 0.6;
     for (const n of st.topology.nodes) {
