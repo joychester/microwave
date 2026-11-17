@@ -15,7 +15,7 @@ import { NodeShape } from './NodeShape';
 import { levelById, useGame } from './game';
 import { describeProgram, evalProgram, isProgram } from '../engine/traffic';
 import { useLang, useT, type T } from './i18n';
-import { fmtAvail, fmtCount, fmtLatency, fmtPct, fmtRate, nodeHealth, utilLabel } from './format';
+import { fmtAvail, fmtCount, fmtLatency, fmtPct, fmtRate, nodeHealth, sloPct, utilLabel } from './format';
 
 type SimNodeT = Node<{ cfg: NodeCfg }, 'sim'>;
 type FlowEdgeT = Edge<{ cfg: EdgeCfg; fromType: NodeType; share?: number }, 'flow'>;
@@ -65,6 +65,7 @@ const SimNode = memo(function SimNode({ id, data, selected }: NodeProps<SimNodeT
   }, [s]);
   const hp = cfg.type === 'client' ? sysAvail : s && s.ok + s.err > 0 ? s.ok / (s.ok + s.err) : null;
 
+  const pct = useStore((st) => sloPct(st.topology));
   let instances = '';
   if (cfg.type === 'service' || cfg.type === 'gateway') {
     const n = s?.instances ?? Number(cfg.params.instances);
@@ -78,7 +79,7 @@ const SimNode = memo(function SimNode({ id, data, selected }: NodeProps<SimNodeT
   if (cfg.type === 'client') {
     const planned = isProgram(cfg.params.traffic) ? evalProgram(cfg.params.traffic, 0) : Number(cfg.params.rps);
     stats.push({ k: t('发出', 'Sent'), v: s ? `${fmtRate(s.arr)}/s` : `${fmtRate(planned)}/s` });
-    stats.push({ k: 'p99', v: s ? fmtLatency(s.p99) : '—', tone: s && s.p99 > Number(cfg.params.sloP99) ? 'crit' : undefined });
+    stats.push({ k: pct, v: s ? fmtLatency(s[pct] ?? s.p99) : '—', tone: s && (s[pct] ?? s.p99) > Number(cfg.params.sloP99) ? 'crit' : undefined });
     stats.push({ k: t('可用性', 'Avail.'), v: sysAvail !== null ? fmtAvail(sysAvail) : '—', tone: sysAvail !== null && sysAvail < Number(cfg.params.sloAvail) ? 'crit' : undefined });
   } else if (cfg.type === 'queue') {
     stats.push({ k: t('写入', 'In'), v: s ? `${fmtRate(s.ok)}/s` : '—' });
@@ -86,7 +87,7 @@ const SimNode = memo(function SimNode({ id, data, selected }: NodeProps<SimNodeT
     stats.push({ k: t('积压', 'Lag'), v: s ? fmtCount(s.extra.lag ?? 0) : '—', tone: health === 'crit' ? 'crit' : health === 'warn' ? 'warn' : undefined });
   } else {
     stats.push({ k: t('流量', 'Traffic'), v: s ? `${fmtRate(s.arr)}/s` : '—' });
-    stats.push({ k: 'p99', v: s ? fmtLatency(s.p99) : '—' });
+    stats.push({ k: pct, v: s ? fmtLatency(s[pct] ?? s.p99) : '—' });
     stats.push({ k: t('错误', 'Errors'), v: s ? (total > 0 ? fmtPct(errRate, errRate < 0.1 && errRate > 0 ? 1 : 0) : '0%') : '—', tone: errRate > 0.05 ? 'crit' : errRate > 0.005 ? 'warn' : undefined });
   }
 

@@ -6,7 +6,7 @@ import { useStore, type DockTab } from './store';
 import { TimeChart } from './TimeChart';
 import { useChrome, useSeries } from './theme';
 import { useLang, useT } from './i18n';
-import { fmtClock, fmtLatency, fmtPct, fmtRate } from './format';
+import { fmtClock, fmtLatency, fmtPct, fmtRate, sloPct } from './format';
 import { NumberInput } from './ParamField';
 import { Glyph } from './Glyph';
 import { ReportPanel } from './Report';
@@ -64,12 +64,14 @@ function SystemCharts() {
   const x = useMemo(() => recent.map((s) => s.t), [recent]);
   const client = topology.nodes.find((n) => n.type === 'client');
   const sloP99 = Number(client?.params.sloP99 ?? 500);
+  const pct = sloPct(topology);
 
   const lat = useMemo(() => [
     { key: 'p50', label: 'p50', color: series[0], values: recent.map((s) => s.sys.p50 || null) },
-    { key: 'p99', label: 'p99', color: series[1], values: recent.map((s) => s.sys.p99 || null) },
+    { key: 'avg', label: t('平均', 'avg'), color: series[2], values: recent.map((s) => s.sys.mean || null) },
+    { key: pct, label: pct, color: series[1], values: recent.map((s) => s.sys[pct] || null) },
     { key: 'slo', label: 'SLO', color: chrome.neutral, dash: [4, 4], width: 1.5, values: recent.map(() => sloP99) },
-  ], [recent, sloP99, series, chrome]);
+  ], [recent, sloP99, pct, series, chrome, t]);
 
   const reqs = useMemo(() => [
     { key: 'ok', label: t('成功', 'OK'), color: series[0], values: recent.map((s) => s.sys.ok) },

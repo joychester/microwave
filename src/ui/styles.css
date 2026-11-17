@@ -867,8 +867,12 @@ fieldset.pf:disabled * { cursor: not-allowed; }
   .menu-btn { max-width: 190px; }
   .btn--challenge svg { display: none; }
 }
+/* seven KPIs: drop burn rate and retry amplification first, then succeeded */
+@media (max-width: 1680px) {
+  .kpi:nth-child(5), .kpi:nth-child(7) { display: none; }
+}
 @media (max-width: 1480px) {
-  .kpi:nth-child(4), .kpi:nth-child(6) { display: none; }
+  .kpi:nth-child(4), .kpi:nth-child(5), .kpi:nth-child(7) { display: none; }
   .menu-k { display: none; }
 }
 

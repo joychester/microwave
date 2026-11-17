@@ -1,4 +1,4 @@
-import type { NodeSample, NodeType, Snapshot } from '../engine/types';
+import type { NodeSample, NodeType, Snapshot, Topology } from '../engine/types';
 
 export function fmtRate(v: number): string {
   if (!isFinite(v)) return '—';
@@ -44,17 +44,26 @@ export function fmtClock(ms: number): string {
   return h > 0 ? `${h}:${pad(m % 60)}:${pad(s % 60)}` : `${pad(m)}:${pad(s % 60)}`;
 }
 
+// ---------- latency percentile used for the SLO (set on the traffic source; p95 unless it says p99)
+export type Pct = 'p95' | 'p99';
+export function sloPct(topo: Topology): Pct {
+  const c = topo.nodes.find((n) => n.type === 'client');
+  return c?.params.sloPct === 'p99' ? 'p99' : 'p95';
+}
+
 // ---------- windowed aggregation over the last N snapshots
 export function windowSys(history: Snapshot[], n = 5) {
   const w = history.slice(-n);
   if (w.length === 0) return null;
   let req = 0, ok = 0, fail = 0, attempts = 0, offered = 0;
-  let p99 = 0, p50 = 0;
+  let p99 = 0, p95 = 0, p50 = 0, latSum = 0;
   for (const s of w) {
     req += s.sys.req; ok += s.sys.ok; fail += s.sys.fail; offered += s.sys.offered;
     attempts += s.sys.amplification;
     p99 = Math.max(p99, s.sys.p99);
+    p95 = Math.max(p95, s.sys.p95);
     p50 += s.sys.p50;
+    latSum += (s.sys.mean ?? s.sys.p50) * s.sys.req;
   }
   return {
     rps: req / w.length,
@@ -63,7 +72,10 @@ export function windowSys(history: Snapshot[], n = 5) {
     offered: offered / w.length,
     avail: ok + fail > 0 ? ok / (ok + fail) : 1,
     p99,
+    p95,
     p50: p50 / w.length,
+    /** request-weighted mean latency */
+    avg: req > 0 ? latSum / req : 0,
     amplification: attempts / w.length,
   };
 }
@@ -77,6 +89,8 @@ export function windowNode(history: Snapshot[], id: string, n = 3): NodeSample |
     ...last,
     arr: avg('arr'), ok: avg('ok'), err: avg('err'), wasted: avg('wasted'),
     util: avg('util'), cpu: avg('cpu'), p50: avg('p50'),
+    mean: (() => { const n = w.reduce((s, x) => s + x.ok + x.err, 0); return n > 0 ? w.reduce((s, x) => s + (x.mean ?? x.p50) * (x.ok + x.err), 0) / n : 0; })(),
+    p95: Math.max(...w.map((x) => x.p95 ?? x.p99)),
     p99: Math.max(...w.map((x) => x.p99)),
   };
 }

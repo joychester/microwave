@@ -71,6 +71,7 @@ export interface NodeSample {
   err: number;
   wasted: number; // completions after caller already gave up
   p50: number;
+  p95: number;
   p99: number;
   /** Mean latency of the requests sampled this second (ms). */
   mean?: number;
@@ -99,6 +100,8 @@ export interface SystemSample {
   p50: number;
   p95: number;
   p99: number;
+  /** Mean end-to-end latency this second (ms). */
+  mean: number;
   avail: number; // over this second
   amplification: number; // all edge attempts / first attempts
   causes: Record<string, number>;

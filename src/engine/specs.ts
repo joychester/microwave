@@ -94,7 +94,10 @@ export const NODE_SPECS: Record<NodeType, NodeTypeSpec> = {
       { key: 'diurnalTrough', label: L('低谷 / 高峰', 'Trough / peak'), kind: 'ratio', default: 0.3, min: 0, max: 1, step: 0.05, group: 'traffic', showIf: (p) => p.pattern === 'diurnal' },
       { key: 'mix', label: L('请求路径组成', 'Request path mix'), kind: 'text', default: '/orders:0.3,/products:0.7', group: 'traffic', help: L('路径:权重，用逗号分隔。API Gateway 按路径前缀路由', 'path:weight, comma separated. The API Gateway routes by path prefix') },
       { key: 'sloAvail', label: L('可用性 SLO', 'Availability SLO'), kind: 'number', default: 0.999, min: 0.9, max: 0.99999, step: 0.0005, group: 'slo' },
-      { key: 'sloP99', label: L('p99 延迟 SLO', 'p99 latency SLO'), kind: 'ms', default: 500, min: 10, max: 30000, group: 'slo' },
+      { key: 'sloPct', label: L('延迟 SLO 分位数', 'Latency SLO percentile'), kind: 'enum', default: 'p95', group: 'slo', options: [
+        { value: 'p95', label: L('p95', 'p95') }, { value: 'p99', label: L('p99', 'p99') },
+      ], help: L('延迟指标、SLO 判定和运行报告都按这个分位数计算', 'Latency figures, the SLO check and run reports all use this percentile') },
+      { key: 'sloP99', label: L('延迟 SLO', 'Latency SLO'), kind: 'ms', default: 500, min: 10, max: 30000, group: 'slo', help: L('按上面选的分位数衡量', 'Measured at the percentile chosen above') },
     ],
     failures: [
       { kind: 'surge', label: L('流量突增', 'Traffic surge'), help: L('入口流量放大 N 倍', 'Multiplies incoming traffic by N'), params: [{ key: 'multiplier', label: L('倍数', 'Multiplier'), default: 3, min: 1, max: 20, step: 0.5 }], defaultDuration: 60 },

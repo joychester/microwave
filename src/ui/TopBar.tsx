@@ -4,7 +4,7 @@ import { SCENARIOS, TOPOLOGY_PRESETS } from '../engine/presets';
 import type { Topology } from '../engine/types';
 import { useStore } from './store';
 import { useLang, useT } from './i18n';
-import { fmtAvail, fmtClock, fmtLatency, fmtRate, windowSys } from './format';
+import { fmtAvail, fmtClock, fmtLatency, fmtRate, sloPct, windowSys } from './format';
 import { fmtCost } from '../engine/cost';
 import { levelById, useGame } from './game';
 import { play } from './sound';
@@ -139,11 +139,13 @@ function Kpis() {
   const client = topology.nodes.find((n) => n.type === 'client');
   const sloA = Number(client?.params.sloAvail ?? 0.999);
   const sloL = Number(client?.params.sloP99 ?? 500);
+  const pct = sloPct(topology);
   const burn = w ? (1 - w.avail) / Math.max(1e-9, 1 - sloA) : 0;
   const cost = useGame((g) => g.costNow);
   const items = [
     { k: t('可用性', 'Availability'), v: w ? fmtAvail(w.avail) : '—', note: `SLO ${fmtAvail(sloA)}`, tone: !w ? '' : w.avail < sloA ? 'crit' : '' },
-    { k: t('p99 延迟', 'p99 latency'), v: w ? fmtLatency(w.p99) : '—', note: `SLO ${fmtLatency(sloL)}`, tone: !w ? '' : w.p99 > sloL ? 'crit' : w.p99 > sloL * 0.8 ? 'warn' : '' },
+    { k: t(`${pct} 延迟`, `${pct} latency`), v: w ? fmtLatency(w[pct]) : '—', note: `SLO ${fmtLatency(sloL)}`, tone: !w ? '' : w[pct] > sloL ? 'crit' : w[pct] > sloL * 0.8 ? 'warn' : '' },
+    { k: t('平均延迟', 'Avg latency'), v: w ? fmtLatency(w.avg) : '—', note: t('最近 5 秒所有请求的平均延迟', 'Mean latency of all requests over the last 5 s'), tone: '' },
     { k: t('成功', 'Succeeded'), v: w ? `${fmtRate(w.okRps)}/s` : '—', note: w ? t(`发出 ${fmtRate(w.offered)}/s`, `${fmtRate(w.offered)}/s sent`) : '', tone: '' },
     { k: t('预算燃烧', 'Burn rate'), v: w ? (burn < 0.05 ? '0×' : `${burn >= 100 ? burn.toFixed(0) : burn.toFixed(1)}×`) : '—', note: t('错误预算消耗速度', 'How fast the error budget is being spent'), tone: !w ? '' : burn >= 10 ? 'crit' : burn >= 1 ? 'warn' : '' },
     { k: t('成本', 'Cost'), v: `${fmtCost(cost)}/h`, note: t('当前配置每小时的运行成本', 'Running cost of the current setup per hour'), tone: '' },

@@ -1292,7 +1292,7 @@ export class Simulator {
       }
       nodes[rt.cfg.id] = {
         arr: a.arr, ok: a.ok, err: a.err, wasted: a.wasted,
-        p50: percentile(lats, 0.5), p99: percentile(lats, 0.99),
+        p50: percentile(lats, 0.5), p95: percentile(lats, 0.95), p99: percentile(lats, 0.99),
         mean: lats.length ? lats.reduce((x, y) => x + y, 0) / lats.length : 0,
         util: Math.min(1, util), cpu: Math.min(1, cpu), queue, inflight: rt.type === 'external' ? rt.extInflight : busy,
         instances: rt.type === 'cache' || rt.type === 'database' ? rt.instances.length : ready,
@@ -1316,6 +1316,7 @@ export class Simulator {
         t: Math.round(this.now / 1000),
         req: s.req, ok: s.ok, fail: s.fail,
         p50: percentile(lats, 0.5), p95: percentile(lats, 0.95), p99: percentile(lats, 0.99),
+        mean: lats.length ? lats.reduce((x, y) => x + y, 0) / lats.length : 0,
         avail: done > 0 ? s.ok / done : 1,
         amplification: s.first > 0 ? s.attempts / s.first : 1,
         causes: s.causes, offered: s.offered,

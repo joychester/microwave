@@ -8,7 +8,7 @@ import { ParamField, NumberInput } from './ParamField';
 import { TimeChart } from './TimeChart';
 import { useSeries } from './theme';
 import { useLang, useT } from './i18n';
-import { fmtAvail, fmtCount, fmtLatency, fmtPct, fmtRate, windowNode } from './format';
+import { fmtAvail, fmtCount, fmtLatency, fmtPct, fmtRate, sloPct, windowNode } from './format';
 import { cacheShape, cheHitRatio, topKeyShare } from '../engine/cachemodel';
 import { levelById, useGame } from './game';
 import { isParamLocked } from '../game/levels';
@@ -91,10 +91,12 @@ function NodeInspector({ node }: { node: NodeCfg }) {
       { key: 'err', label: t('失败', 'Failed'), color: series[1], values: recent.map((s) => s.nodes[node.id]?.err ?? null) },
     ];
   }, [recent, node.id, node.type, series, t]);
+  const pct = useStore((st) => sloPct(st.topology));
   const latSeries = useMemo(() => [
     { key: 'p50', label: 'p50', color: series[0], values: recent.map((s) => s.nodes[node.id]?.p50 ?? null) },
-    { key: 'p99', label: 'p99', color: series[1], values: recent.map((s) => s.nodes[node.id]?.p99 ?? null) },
-  ], [recent, node.id, series]);
+    { key: 'avg', label: t('平均', 'avg'), color: series[2], values: recent.map((s) => s.nodes[node.id]?.mean ?? null) },
+    { key: pct, label: pct, color: series[1], values: recent.map((s) => { const n = s.nodes[node.id]; return n ? (n[pct] ?? n.p99) : null; }) },
+  ], [recent, node.id, series, pct, t]);
 
   return (
     <div className="ins">
@@ -168,15 +170,17 @@ function LiveRow({ node, live }: { node: NodeCfg; live: NonNullable<ReturnType<t
   const total = live.ok + live.err;
   const errRate = total > 0 ? live.err / total : 0;
   const causes = Object.entries(live.causes).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const pct = useStore((st) => sloPct(st.topology));
   let cells: [string, string][];
   if (node.type === 'queue') {
     cells = [[t('写入', 'In'), `${fmtRate(live.ok)}/s`], [t('消费', 'Out'), `${fmtRate(live.extra.consumed ?? 0)}/s`], [t('积压', 'Lag'), String(live.extra.lag ?? 0)], [t('死信', 'Dead letters'), `${fmtRate(live.extra.dlq ?? 0)}/s`]];
   } else if (node.type === 'client') {
-    cells = [[t('发出', 'Sent'), `${fmtRate(live.arr)}/s`], ['p99', fmtLatency(live.p99)], [t('可用性', 'Availability'), fmtAvail(1 - errRate)], ['p50', fmtLatency(live.p50)]];
+    cells = [[t('发出', 'Sent'), `${fmtRate(live.arr)}/s`], [t('平均', 'Avg'), fmtLatency(live.mean ?? live.p50)], [pct, fmtLatency(live[pct] ?? live.p99)], [t('可用性', 'Availability'), fmtAvail(1 - errRate)]];
   } else {
     cells = [
       [t('到达', 'Arrivals'), `${fmtRate(live.arr)}/s`],
-      ['p99', fmtLatency(live.p99)],
+      [t('平均', 'Avg'), fmtLatency(live.mean ?? live.p50)],
+      [pct, fmtLatency(live[pct] ?? live.p99)],
       [t('错误率', 'Error rate'), fmtPct(errRate, 1)],
       node.type === 'service' ? ['CPU', fmtPct(live.cpu)] : node.type === 'external' ? [t('配额使用', 'Quota used'), fmtPct(live.util)] : [t('利用率', 'Utilization'), fmtPct(live.util)],
     ];
@@ -184,7 +188,7 @@ function LiveRow({ node, live }: { node: NodeCfg; live: NonNullable<ReturnType<t
   const comma = lang === 'en' ? ', ' : '，';
   return (
     <div className="live">
-      <dl className="live-grid">
+      <dl className="live-grid" style={{ gridTemplateColumns: `repeat(${cells.length}, minmax(0, 1fr))` }}>
         {cells.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
       </dl>
       {causes.length > 0 && (

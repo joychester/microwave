@@ -8,6 +8,7 @@ import type { Snapshot, Topology } from '../engine/types';
 import { useStore } from './store';
 import { useGame } from './game';
 import { play } from './sound';
+import { sloPct, type Pct } from './format';
 
 export const DURATIONS = [60, 120, 300, 600, 1800]; // seconds; capped at 30 minutes
 
@@ -27,6 +28,8 @@ export interface RunReport {
   avail: number;
   p99Max: number;
   p99Avg: number;
+  /** Request-weighted mean latency over the run (ms). */
+  latAvg: number;
   sloSeconds: number; // seconds that met both SLOs
   offeredPeak: number;
   offeredAvg: number;
@@ -38,10 +41,12 @@ export interface RunReport {
   lagMax: number;
   ampMax: number;
   slo: { avail: number; p99: number };
+  /** Latency percentile the SLO and the latency figures use. Fields named p99* hold this percentile. */
+  pct: Pct;
 }
 
-interface Acc extends Omit<RunReport, 'id' | 'name' | 'avail' | 'p99Avg' | 'offeredAvg' | 'costAvg'> {
-  p99Sum: number; offeredSum: number; costSum: number; kneeStreak: number; satStreak: Record<string, number>;
+interface Acc extends Omit<RunReport, 'id' | 'name' | 'avail' | 'p99Avg' | 'latAvg' | 'offeredAvg' | 'costAvg'> {
+  latWeighted: number; p99Sum: number; offeredSum: number; costSum: number; kneeStreak: number; satStreak: Record<string, number>;
 }
 
 function newAcc(topo: Topology, duration: number, lang: 'zh' | 'en', t0: number): Acc {
@@ -54,7 +59,8 @@ function newAcc(topo: Topology, duration: number, lang: 'zh' | 'en', t0: number)
     requests: 0, ok: 0, fail: 0, p99Max: 0, sloSeconds: 0, offeredPeak: 0,
     knee: null, firstSaturated: null, causes: {}, nodes: {}, lagMax: 0, ampMax: 1,
     slo: { avail: Number(client?.params.sloAvail ?? 0.999), p99: Number(client?.params.sloP99 ?? 500) },
-    p99Sum: 0, offeredSum: 0, costSum: 0, kneeStreak: 0, satStreak: {},
+    pct: sloPct(topo),
+    latWeighted: 0, p99Sum: 0, offeredSum: 0, costSum: 0, kneeStreak: 0, satStreak: {},
   };
 }
 
@@ -62,12 +68,14 @@ function addSnap(a: Acc, s: Snapshot, topo: Topology) {
   a.seconds += 1;
   const sys = s.sys;
   a.requests += sys.req; a.ok += sys.ok; a.fail += sys.fail;
-  a.p99Max = Math.max(a.p99Max, sys.p99); a.p99Sum += sys.p99;
+  const lat = sys[a.pct];
+  a.p99Max = Math.max(a.p99Max, lat); a.p99Sum += lat;
+  a.latWeighted += (sys.mean ?? sys.p50) * sys.req;
   a.offeredPeak = Math.max(a.offeredPeak, sys.offered); a.offeredSum += sys.offered;
   a.ampMax = Math.max(a.ampMax, sys.amplification);
   for (const [k, v] of Object.entries(sys.causes)) a.causes[k] = (a.causes[k] ?? 0) + v;
   const avail = sys.ok + sys.fail > 0 ? sys.ok / (sys.ok + sys.fail) : 1;
-  const good = avail >= a.slo.avail && (sys.req === 0 || sys.p99 <= a.slo.p99);
+  const good = avail >= a.slo.avail && (sys.req === 0 || lat <= a.slo.p99);
   if (good) a.sloSeconds += 1;
   a.costSum += costPerHour(topo, s.nodes).total;
 
@@ -80,7 +88,7 @@ function addSnap(a: Acc, s: Snapshot, topo: Topology) {
     if (!acc) acc = a.nodes[n.id] = { name: n.name, type: n.type, peakUtil: 0, peakT: 0, p99Max: 0, err: 0, arrMax: 0 };
     const u = n.type === 'client' || n.type === 'lb' || n.type === 'queue' ? 0 : Math.max(ns.util, ns.cpu);
     if (u > acc.peakUtil) { acc.peakUtil = u; acc.peakT = s.t; }
-    acc.p99Max = Math.max(acc.p99Max, n.type === 'client' ? 0 : ns.p99);
+    acc.p99Max = Math.max(acc.p99Max, n.type === 'client' ? 0 : (ns[a.pct] ?? ns.p99));
     acc.err += n.type === 'client' ? 0 : ns.err;
     acc.arrMax = Math.max(acc.arrMax, ns.arr);
     if (n.type === 'queue') a.lagMax = Math.max(a.lagMax, ns.extra.lag ?? 0);
@@ -106,6 +114,7 @@ function finalize(a: Acc, id: number): RunReport {
     ...a, id, name: `#${id}`,
     avail: done > 0 ? a.ok / done : 1,
     p99Avg: a.seconds > 0 ? a.p99Sum / a.seconds : 0,
+    latAvg: a.requests > 0 ? a.latWeighted / a.requests : 0,
     offeredAvg: a.seconds > 0 ? a.offeredSum / a.seconds : 0,
     costAvg: a.seconds > 0 ? a.costSum / a.seconds : 0,
   };

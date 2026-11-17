@@ -41,10 +41,12 @@ export function ReportPanel() {
   const r = reports[Math.min(sel, reports.length - 1)];
   const p: RunReport | undefined = reports[Math.min(sel, reports.length - 1) + 1];
   const relT = (abs: number) => fmtClock(Math.max(0, abs - r.t0) * 1000);
+  const pct = r.pct ?? 'p99';
 
   const tiles: Tile[] = [
     { k: t('可用性', 'Availability'), v: fmtAvail(r.avail), cur: r.avail * 100, prev: p ? p.avail * 100 : undefined, better: 'up', fmtDelta: (d) => `${d.toFixed(2)}pt`, tone: r.avail < r.slo.avail ? 'crit' : 'ok', note: `SLO ${fmtAvail(r.slo.avail)}` },
-    { k: t('p99 峰值', 'Peak p99'), v: fmtLatency(r.p99Max), cur: r.p99Max, prev: p?.p99Max, better: 'down', fmtDelta: fmtLatency, tone: r.p99Max > r.slo.p99 ? 'crit' : 'ok', note: `SLO ${fmtLatency(r.slo.p99)}` },
+    { k: t('平均延迟', 'Avg latency'), v: fmtLatency(r.latAvg ?? 0), cur: r.latAvg ?? 0, prev: p?.latAvg, better: 'down', fmtDelta: fmtLatency, note: t('整次运行所有请求的平均值', 'Mean over every request in the run') },
+    { k: t(`${pct} 峰值`, `Peak ${pct}`), v: fmtLatency(r.p99Max), cur: r.p99Max, prev: p?.p99Max, better: 'down', fmtDelta: fmtLatency, tone: r.p99Max > r.slo.p99 ? 'crit' : 'ok', note: `SLO ${fmtLatency(r.slo.p99)}` },
     { k: t('SLO 达标时间', 'Time within SLO'), v: fmtPct(r.sloSeconds / Math.max(1, r.seconds)), cur: (r.sloSeconds / Math.max(1, r.seconds)) * 100, prev: p ? (p.sloSeconds / Math.max(1, p.seconds)) * 100 : undefined, better: 'up', fmtDelta: (d) => `${d.toFixed(0)}pt` },
     {
       k: t('拐点', 'Knee point'),
@@ -75,7 +77,7 @@ export function ReportPanel() {
       '',
       ...tiles.map((x) => `- **${x.k}**: ${x.v}${x.note ? ` (${x.note})` : ''}`),
       '',
-      `| ${t('组件', 'Component')} | ${t('峰值利用率', 'Peak util.')} | ${t('峰值时刻', 'At')} | p99 ${t('峰值', 'peak')} | ${t('失败', 'Failures')} |`,
+      `| ${t('组件', 'Component')} | ${t('峰值利用率', 'Peak util.')} | ${t('峰值时刻', 'At')} | ${pct} ${t('峰值', 'peak')} | ${t('失败', 'Failures')} |`,
       '|---|---|---|---|---|',
       ...nodes.map(([, n]) => `| ${n.name} | ${fmtPct(n.peakUtil)} | ${relT(n.peakT)} | ${fmtLatency(n.p99Max)} | ${fmtCount(n.err)} |`),
     ];
@@ -118,7 +120,7 @@ export function ReportPanel() {
                 <th scope="col">{t('组件', 'Component')}</th>
                 <th scope="col">{t('峰值利用率', 'Peak utilization')}</th>
                 <th scope="col" className="r">{t('峰值时刻', 'At')}</th>
-                <th scope="col" className="r">{t('p99 峰值', 'Peak p99')}</th>
+                <th scope="col" className="r">{t(`${pct} 峰值`, `Peak ${pct}`)}</th>
                 <th scope="col" className="r">{t('失败', 'Failures')}</th>
                 <th scope="col" className="r">{t('峰值到达', 'Peak arrivals')}</th>
               </tr>

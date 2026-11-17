@@ -96,7 +96,7 @@ export const useGame = create<GameState>((set, get) => ({
     if (fresh) {
       const topo = level.make(st.lang);
       const client = topo.nodes.find((n) => n.type === 'client');
-      if (client) client.params = { ...client.params, rps: trafficAt(level, 0), sloAvail: level.slo.avail, sloP99: level.slo.p99, pattern: 'constant' };
+      if (client) client.params = { ...client.params, rps: trafficAt(level, 0), sloAvail: level.slo.avail, sloP99: level.slo.p99, sloPct: 'p99', pattern: 'constant' };
       st.setTopology(topo, { reset: true });
     } else {
       st.reset();
