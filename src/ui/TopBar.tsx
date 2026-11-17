@@ -148,7 +148,7 @@ function Kpis() {
     { k: t('平均延迟', 'Avg latency'), v: w ? fmtLatency(w.avg) : '—', note: t('最近 5 秒所有请求的平均延迟', 'Mean latency of all requests over the last 5 s'), tone: '' },
     { k: t('成功', 'Succeeded'), v: w ? `${fmtRate(w.okRps)}/s` : '—', note: w ? t(`发出 ${fmtRate(w.offered)}/s`, `${fmtRate(w.offered)}/s sent`) : '', tone: '' },
     { k: t('预算燃烧', 'Burn rate'), v: w ? (burn < 0.05 ? '0×' : `${burn >= 100 ? burn.toFixed(0) : burn.toFixed(1)}×`) : '—', note: t('错误预算消耗速度', 'How fast the error budget is being spent'), tone: !w ? '' : burn >= 10 ? 'crit' : burn >= 1 ? 'warn' : '' },
-    { k: t('成本', 'Cost'), v: `${fmtCost(cost)}/h`, note: t('当前配置每小时的运行成本', 'Running cost of the current setup per hour'), tone: '' },
+    { k: t('成本', 'Cost'), v: `${fmtCost(cost)}/h`, note: t('当前配置每小时的运行成本。按粗略单价估算，只用于比较方案，不代表真实账单', 'Running cost of the current setup per hour. Estimated from rough unit prices for comparing designs, not a real bill'), tone: '' },
     { k: t('重试放大', 'Retry amp.'), v: w ? `${w.amplification.toFixed(2)}×` : '—', note: t('调用尝试 ÷ 首次调用', 'All attempts ÷ first attempts'), tone: !w ? '' : w.amplification >= 1.3 ? 'crit' : w.amplification >= 1.08 ? 'warn' : '' },
   ];
   return (

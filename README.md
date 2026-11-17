@@ -27,6 +27,8 @@ Click the clock in the top bar to pick a run length (1, 2, 5, 10 or 30 minutes o
 
 **Latency SLO percentile.** The latency SLO is set on the traffic source and measured at **p95** by default; switch it to **p99** under the traffic source's SLO settings. The top bar, node cards, charts, SLO check and run reports all follow that choice. Average latency is shown alongside it in the top bar, the inspector, the latency charts and the run report. Challenge mode always uses p99, so level scores stay comparable.
 
+**Cost.** The cost in the top bar and in run reports is estimated from rough unit prices (for example $0.10 per service core-hour, $0.12 per cache shard-hour, $0.40 per database instance-hour). Use it to compare designs, such as more instances versus a cache. It is not a forecast of a real cloud bill: the unit prices are not tied to any provider's price list, and storage, data transfer, usage-based charges and discounts are not modeled.
+
 ## The e-commerce reference
 
 The default preset, **E-commerce checkout reference**, is a small online shop with 4 services, 1 third-party API and 15 calls:
@@ -148,7 +150,7 @@ src/engine/          simulation core with no UI dependency (runs on its own in N
   analysis.ts        analytical layer: forced flow law, M/G/c (Erlang C + Allen-Cunneen), USL, capacity plans
   presets.ts         preset topologies and demo scenarios
   host.ts            advances the simulation in real time, schedules faults, emits per-second metrics
-  cost.ts            running cost model ($/hour)
+  cost.ts            running cost model ($/hour), rough unit prices for comparing designs
   traffic.ts         traffic models: base model + overlays, evaluation and replay parsing
   cachemodel.ts      cache hit ratio: Zipf + Che's approximation (LRU)
   calibrate.ts       calibration: CSV parsing, backsolving parameters from production metrics, verification run
