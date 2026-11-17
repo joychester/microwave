@@ -118,6 +118,8 @@ export function utilLabel(type: NodeType, s: NodeSample, lang: 'zh' | 'en' = 'zh
       return { kind: t('分片', 'Shards'), value: s.util };
     case 'database':
       return { kind: t('执行', 'Executing'), value: s.util };
+    case 'external':
+      return { kind: t('配额', 'Quota'), value: s.util };
     default:
       return null;
   }

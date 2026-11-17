@@ -147,6 +147,7 @@ class NodeRT {
   produceRr = 0;
   fill = -1; // cache: keys currently held (capacity mode)
   hitMemo = { fill: -1, at: -1e9, key: '', v: 0 };
+  extInflight = 0; // external: calls in flight
   alive = true;
   constructor(cfg: NodeCfg) {
     this.cfg = cfg;
@@ -194,6 +195,8 @@ export const CAUSE_LABELS: Record<string, Text> = {
   db_failover: L('主从切换中', 'DB failover'),
   no_route: L('无路由', 'No route'),
   no_target: L('目标不存在', 'Missing target'),
+  quota_exceeded: L('第三方配额 429', 'Provider quota (429)'),
+  provider_down: L('第三方不可用', 'Provider outage'),
 };
 
 // ---------------------------------------------------------------- simulator
@@ -277,6 +280,7 @@ export class Simulator {
         rt!.p = withDefaults(NODE_SPECS[cfg.type].params, cfg.params);
       }
       if (isNew && cfg.type === 'gateway') rt!.tokens = rt!.num('rlBurst');
+      if (isNew && cfg.type === 'external') rt!.tokens = rt!.num('quotaBurst');
       if (isNew && cfg.type === 'client') this.startClient(rt!);
     }
     for (const [id, rt] of this.nodes) {
@@ -542,6 +546,7 @@ export class Simulator {
       case 'cache': return this.handleCache(rt, req, d);
       case 'database': return this.handleDb(rt, req, d);
       case 'queue': return this.handleQueueProduce(rt, req, d);
+      case 'external': return this.handleExternal(rt, d);
       case 'client': return d(false, 'no_route');
     }
   }
@@ -717,6 +722,39 @@ export class Simulator {
   }
 
   // ------------------------------------------------------------ cache
+  // ------------------------------------------------------------ third-party API
+  // A black box you can't scale: sampled latency, an error rate, and the provider's quota
+  // (a token bucket on rate plus an optional in-flight cap), both answered with 429.
+  private handleExternal(rt: NodeRT, done: Done) {
+    const outage = this.intensity(rt.cfg.id, 'outage');
+    if (outage.v > 0 && this.rng.next() < outage.v) { this.at(1, () => done(false, 'provider_down')); return; }
+    const qps = rt.num('quotaRps');
+    if (qps > 0) {
+      const cut = this.intensity(rt.cfg.id, 'quotaCut');
+      const share = 1 - (1 - (cut.f?.params.share ?? 1)) * cut.v;
+      const burst = Math.max(1, rt.num('quotaBurst'));
+      rt.tokens = Math.min(burst, rt.tokens + ((this.now - rt.tokLast) * qps * share) / 1000);
+      rt.tokLast = this.now;
+      if (rt.tokens < 1) { this.at(1, () => done(false, 'quota_exceeded')); return; }
+      rt.tokens -= 1;
+    }
+    const cap = rt.num('maxConcurrent');
+    if (cap > 0 && rt.extInflight >= cap) { this.at(1, () => done(false, 'quota_exceeded')); return; }
+    rt.extInflight++;
+    rt.acc.extra.billed = (rt.acc.extra.billed ?? 0) + 1;
+    const slow = this.intensity(rt.cfg.id, 'slow');
+    const mult = 1 + ((slow.f?.params.multiplier ?? 1) - 1) * slow.v;
+    const lat = sample(rt.dist('latency'), this.rng) * mult;
+    const t0 = this.now;
+    this.at(lat, () => {
+      rt.extInflight--;
+      rt.acc.busyInt += this.now - t0;
+      const spike = this.intensity(rt.cfg.id, 'errorSpike');
+      const er = rt.num('errorRate') * (1 - spike.v) + (spike.f?.params.rate ?? 0) * spike.v;
+      done(this.rng.next() >= er, 'error');
+    });
+  }
+
   private handleCache(rt: NodeRT, req: Req, done: Done) {
     const n = rt.instances.length;
     const hk = this.intensity(rt.cfg.id, 'hotKey');
@@ -1214,6 +1252,10 @@ export class Simulator {
         // hottest shard matters more than the average
       } else if (rt.type === 'database') {
         util = a.busyInt / (this.workers(rt) * Math.max(1, rt.instances.length) * 1000);
+      } else if (rt.type === 'external') {
+        // how much of the provider's allowance is in use: rate against quota, in-flight against the cap
+        const q = rt.num('quotaRps'), cap = rt.num('maxConcurrent');
+        util = Math.max(q > 0 ? (a.extra.billed ?? 0) / q : 0, cap > 0 ? a.busyInt / (cap * 1000) : 0);
       }
       const extra: Record<string, number> = {};
       if (rt.type === 'cache') {
@@ -1227,6 +1269,10 @@ export class Simulator {
           extra.fill = sh.capacity > 0 ? Math.min(1, rt.fill / sh.capacity) : 0;
           extra.modelHit = this.cacheHitNow(rt, sh);
         }
+      }
+      if (rt.type === 'external') {
+        extra.billed = a.extra.billed ?? 0;
+        extra.inflight = rt.extInflight;
       }
       if (rt.type === 'database') {
         extra.conns = rt.openConns;
@@ -1247,7 +1293,8 @@ export class Simulator {
       nodes[rt.cfg.id] = {
         arr: a.arr, ok: a.ok, err: a.err, wasted: a.wasted,
         p50: percentile(lats, 0.5), p99: percentile(lats, 0.99),
-        util: Math.min(1, util), cpu: Math.min(1, cpu), queue, inflight: busy,
+        mean: lats.length ? lats.reduce((x, y) => x + y, 0) / lats.length : 0,
+        util: Math.min(1, util), cpu: Math.min(1, cpu), queue, inflight: rt.type === 'external' ? rt.extInflight : busy,
         instances: rt.type === 'cache' || rt.type === 'database' ? rt.instances.length : ready,
         causes: a.causes, extra,
       };

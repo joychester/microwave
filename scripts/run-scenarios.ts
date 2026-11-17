@@ -36,13 +36,14 @@ console.log(`bottleneck=${a.bottleneck?.name} maxRps=${a.maxRps.toFixed(0)} e2e=
 const ids = ['gw', 'product', 'order', 'redis', 'pg', 'kafka', 'fulfill'];
 for (const sc of [{ id: 'baseline', label: 'baseline', failure: null as null | (typeof SCENARIOS)[0]['failure'] }, ...SCENARIOS]) {
   if (only && sc.id !== only) continue;
-  const sim = new Simulator(topoMake(), 11);
+  const preset = TOPOLOGY_PRESETS.find((p) => p.id === (sc as { topology?: string }).topology) ?? TOPOLOGY_PRESETS[0];
+  const sim = new Simulator(preset.make('en'), 11);
   const t0 = Date.now();
   sim.advance(60_000);
   if (sc.failure) sim.inject({ ...sc.failure, id: 'f1' });
   sim.advance(runFor * 1000);
   const ms = Date.now() - t0;
   console.log(`\n=== ${typeof sc.label === 'string' ? sc.label : sc.label.en} (${ms}ms wall for ${runFor}s sim) ===`);
-  summarize(sim.drainSnapshots(), ids);
+  summarize(sim.drainSnapshots(), preset.id === 'payment' ? ['gw', 'checkout', 'pg', 'pay'] : ids);
   for (const e of sim.drainEvents().slice(0, 25)) console.log(`  [${e.t.toFixed(0)}s] ${e.text.en}`);
 }

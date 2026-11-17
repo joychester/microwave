@@ -178,7 +178,7 @@ function LiveRow({ node, live }: { node: NodeCfg; live: NonNullable<ReturnType<t
       [t('到达', 'Arrivals'), `${fmtRate(live.arr)}/s`],
       ['p99', fmtLatency(live.p99)],
       [t('错误率', 'Error rate'), fmtPct(errRate, 1)],
-      node.type === 'service' ? ['CPU', fmtPct(live.cpu)] : [t('利用率', 'Utilization'), fmtPct(live.util)],
+      node.type === 'service' ? ['CPU', fmtPct(live.cpu)] : node.type === 'external' ? [t('配额使用', 'Quota used'), fmtPct(live.util)] : [t('利用率', 'Utilization'), fmtPct(live.util)],
     ];
   }
   const comma = lang === 'en' ? ', ' : '，';
@@ -295,6 +295,7 @@ function EdgeInspector({ edge }: { edge: EdgeCfg }) {
     : from?.type === 'gateway' ? t('Gateway 路由：路径以前缀开头的请求走这条边。', 'Gateway route: requests whose path starts with the prefix take this edge.')
     : from?.type === 'lb' ? t('LB 到实例的转发。每次重试会重新选择实例。', 'Load balancer to instances. Each retry picks an instance again.')
     : from?.type === 'cache' ? t('缓存未命中时的回源调用。', 'Origin call made on a cache miss.')
+    : to?.type === 'external' ? t('调用第三方 API。对方慢了你的线程会一直等，超时最好设在它的 p99 附近；重试会消耗配额，必要时打开熔断和降级。', 'Call to a third-party API. When it slows down your threads wait on it, so set the timeout near its p99; retries spend quota, and a circuit breaker with a fallback limits the damage.')
     : from?.type === 'queue' ? t('消费者组：每条消息交给这个服务处理，失败按重试次数重试后进入死信。', 'Consumer group: each message is processed by this service; after the retries are used up it goes to the dead-letter queue.')
     : t('服务间调用。调用期间是否占用线程，由上游服务的设置决定。', 'Service-to-service call. Whether a thread is held during the call is set on the calling service.');
 
@@ -368,12 +369,21 @@ function SandboxOverview() {
     return lang === 'en' ? `${c} ${label.en.toLowerCase()}${c > 1 && !/s$/.test(label.en) ? 's' : ''}` : `${c} 个${label.zh}`;
   });
   const edges = lang === 'en' ? `${topology.edges.length} calls` : `${topology.edges.length} 条调用`;
+  const cal = topology.calibration;
   return (
     <div className="ins ins--overview">
       <header className="ins-head">
         <div className="ins-head-main">
           <div className="ins-title">{topology.name}</div>
           <p className="ins-sub">{[...parts, edges].join(lang === 'en' ? ', ' : '，')}</p>
+          {cal && (
+            <p className="ins-sub ins-cal">
+              {t(
+                `已用 ${cal.source} 校准（${cal.components} 个组件，${cal.appliedAt.slice(0, 10)}）${cal.medianError !== undefined ? `，验证误差中位数 ${(cal.medianError * 100).toFixed(1)}%` : ''}`,
+                `Calibrated from ${cal.source} (${cal.components} components, ${cal.appliedAt.slice(0, 10)})${cal.medianError !== undefined ? `, median verification error ${(cal.medianError * 100).toFixed(1)}%` : ''}`,
+              )}
+            </p>
+          )}
         </div>
       </header>
       <ol className="howto">
@@ -381,6 +391,7 @@ function SandboxOverview() {
         <li><b>{t('调参数。', 'Tune parameters.')}</b>{t('点击节点或连线编辑参数。仿真运行时修改立即生效，可以边看边调。', ' Click a node or an edge to edit it. Changes apply instantly while the simulation runs.')}</li>
         <li><b>{t('注入故障。', 'Inject faults.')}</b>{t('选中节点后在“故障注入”里触发，或者直接从顶部选一个预置场景。', ' Use Fault injection on a selected node, or pick a scenario from the top bar.')}</li>
         <li><b>{t('看容量。', 'Check capacity.')}</b>{t('底部“容量分析”给出解析估算的瓶颈、最大吞吐和目标流量所需的资源。', ' The Capacity tab at the bottom estimates the bottleneck, the maximum throughput and what a target load needs.')}</li>
+        <li><b>{t('对上生产。', 'Match production.')}</b>{t('右上角导入导出菜单里“用生产指标校准”，导入高峰小时的 QPS、响应时间、CPU 等，自动反推参数。', ' Use “Calibrate from metrics” in the import/export menu (top right) to load peak-hour QPS, response times and CPU; parameters are backsolved for you.')}</li>
       </ol>
       <dl className="keys">
         <div><dt><kbd>{t('空格', 'Space')}</kbd></dt><dd>{t('运行 / 暂停', 'Run / pause')}</dd></div>

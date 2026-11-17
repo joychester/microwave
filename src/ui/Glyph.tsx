@@ -41,6 +41,12 @@ export function Glyph({ type, size = 20 }: { type: NodeType; size?: number }) {
           <path d="M4 5v10c0 1.3 2.7 2.3 6 2.3s6-1 6-2.3V5M4 10c0 1.3 2.7 2.3 6 2.3s6-1 6-2.3" />
         </g>
       )}
+      {type === 'external' && (
+        <g {...p}>
+          <path d="M6 15.5h8.5a3.5 3.5 0 0 0 .4-7A4.8 4.8 0 0 0 5.6 8 3.8 3.8 0 0 0 6 15.5Z" />
+          <path d="M9 11.5h3.5M11 10l1.5 1.5L11 13" />
+        </g>
+      )}
       {type === 'queue' && (
         <g {...p}>
           <rect x="2.5" y="6" width="3.2" height="8" rx="0.8" />

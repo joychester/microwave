@@ -6,7 +6,7 @@ export type ParamKind = 'int' | 'number' | 'ratio' | 'ms' | 'seconds' | 'bool' |
 
 export type GroupId =
   | 'traffic' | 'route' | 'slo' | 'capacity' | 'processing' | 'ratelimit' | 'autoscale' | 'routing' | 'health' | 'gc'
-  | 'hit' | 'load' | 'usl' | 'produce' | 'consume' | 'call' | 'retry' | 'breaker' | 'pool';
+  | 'hit' | 'load' | 'usl' | 'produce' | 'consume' | 'call' | 'retry' | 'breaker' | 'pool' | 'quota' | 'billing';
 
 export const GROUP_LABELS: Record<GroupId, Text> = {
   traffic: L('流量', 'Traffic'),
@@ -28,6 +28,8 @@ export const GROUP_LABELS: Record<GroupId, Text> = {
   retry: L('超时与重试', 'Timeouts & retries'),
   breaker: L('熔断', 'Circuit breaker'),
   pool: L('连接池', 'Connection pool'),
+  quota: L('配额', 'Quota'),
+  billing: L('计费', 'Billing'),
 };
 
 export interface ParamSpec {
@@ -225,6 +227,26 @@ export const NODE_SPECS: Record<NodeType, NodeTypeSpec> = {
       { kind: 'consumerCrash', label: L('消费者崩溃', 'Consumer crash'), help: L('部分消费者退出并触发 rebalance', 'Some consumers exit and trigger a rebalance'), params: [{ key: 'count', label: L('数量', 'Count'), default: 3, min: 1, max: 100 }], defaultDuration: 60 },
     ],
   },
+  external: {
+    type: 'external',
+    label: L('外部依赖', 'Third-party API'),
+    short: 'API',
+    blurb: L('不归你管的服务：支付、短信、地图、LLM。只能按它的延迟、错误率和配额来用，没法给它扩容', 'A service you don’t run: payments, SMS, maps, LLMs. You live with its latency, error rate and quota; you can’t add capacity to it'),
+    params: [
+      { key: 'latency', label: L('响应时间', 'Response time'), kind: 'dist', default: ln(150, 900), group: 'processing', help: L('从你这边看到的耗时（含网络）。对方内部怎么排队看不到，当成黑盒', 'As seen from your side, network included. Its internals are a black box') },
+      { key: 'errorRate', label: L('错误率', 'Error rate'), kind: 'ratio', default: 0.002, min: 0, max: 1, step: 0.001, group: 'processing', help: L('正常情况下返回 5xx 的比例，可以参考对方的 SLA', 'Share of calls that fail with 5xx in normal operation; the provider’s SLA is a good guide') },
+      { key: 'quotaRps', label: L('配额（每秒请求数）', 'Quota (requests per second)'), kind: 'number', default: 200, min: 0, max: 1000000, step: 10, group: 'quota', help: L('对方允许的速率，超出返回 429。0 表示不限', 'The rate the provider allows; calls above it get 429. 0 means unlimited') },
+      { key: 'quotaBurst', label: L('突发额度', 'Burst allowance'), kind: 'int', default: 50, min: 1, max: 1000000, group: 'quota', showIf: (p) => Number(p.quotaRps) > 0, help: L('令牌桶容量：短时间内可以超出速率的请求数', 'Token bucket size: how many calls may briefly exceed the rate') },
+      { key: 'maxConcurrent', label: L('并发上限', 'Concurrent request limit'), kind: 'int', default: 0, min: 0, max: 1000000, group: 'quota', help: L('同时在途的请求上限，超出返回 429。0 表示不限', 'Calls in flight at once; beyond it calls get 429. 0 means unlimited') },
+      { key: 'costPer1k', label: L('每千次调用费用（$）', 'Cost per 1,000 calls ($)'), kind: 'number', default: 0, min: 0, max: 10000, step: 0.01, group: 'billing', help: L('按调用计费的 API（LLM、地图、短信）填这里，计入运行成本。被 429 拒绝的调用不计费', 'For APIs billed per call (LLMs, maps, SMS); added to the running cost. Calls rejected with 429 are not billed') },
+    ],
+    failures: [
+      { kind: 'slow', label: L('对方变慢', 'Provider slowdown'), help: L('响应时间放大 N 倍', 'Response time × N'), params: [{ key: 'multiplier', label: L('倍数', 'Multiplier'), default: 5, min: 1, max: 100 }], defaultDuration: 60 },
+      { kind: 'outage', label: L('对方不可用', 'Provider outage'), help: L('所有调用快速失败（连接被拒）', 'Every call fails fast (connection refused)'), params: [], defaultDuration: 60 },
+      { kind: 'errorSpike', label: L('错误率飙升', 'Error spike'), help: L('返回 5xx 的比例上升', 'A higher share of calls return 5xx'), params: [{ key: 'rate', label: L('错误率', 'Error rate'), default: 0.3, min: 0, max: 1, step: 0.05 }], defaultDuration: 30 },
+      { kind: 'quotaCut', label: L('配额下调', 'Quota cut'), help: L('对方临时限流，只剩原配额的一部分', 'The provider throttles you to a fraction of the quota'), params: [{ key: 'share', label: L('剩余比例', 'Share left'), default: 0.3, min: 0.01, max: 1, step: 0.05 }], defaultDuration: 60 },
+    ],
+  },
 };
 
 export const EDGE_SPECS: ParamSpec[] = [
@@ -269,6 +291,7 @@ export function edgeDefaultsFor(fromType: NodeType, toType: NodeType): Params {
   if (fromType === 'client') p.timeout = 3000;
   if (toType === 'cache') p.timeout = 50;
   if (toType === 'database') p.timeout = 500;
+  if (toType === 'external') p.timeout = 3000;
   if (fromType === 'queue') { p.timeout = 10000; p.maxAttempts = 3; }
   return p;
 }

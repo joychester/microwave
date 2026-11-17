@@ -89,7 +89,7 @@ export function TopBar() {
         <LangSwitch />
         <ThemeSwitch />
         <SoundSwitch />
-        <FileMenu />
+        <FileMenu sandbox={!challenge} />
       </div>
     </header>
   );
@@ -299,8 +299,11 @@ export function useStartScenario() {
   };
 }
 
-function FileMenu() {
+function FileMenu({ sandbox }: { sandbox: boolean }) {
   const t = useT();
+  const setCalOpen = useStore((s) => s.setCalOpen);
+  const calBackup = useStore((s) => s.calBackup);
+  const undoCalibration = useStore((s) => s.undoCalibration);
   const [open, setOpen] = useState(false);
   const away = useClickAway(open, () => setOpen(false));
   const topology = useStore((s) => s.topology);
@@ -338,6 +341,8 @@ function FileMenu() {
           <button type="button" role="menuitem" className="menu-item" onClick={() => copy(JSON.stringify(topology, null, 2), 'JSON')}>{t('复制拓扑 JSON', 'Copy topology as JSON')}</button>
           {!framed && <button type="button" role="menuitem" className="menu-item" onClick={() => { download(yaml.dump(topology, { lineWidth: 120 }), `${slug}.yaml`, 'text/yaml'); setOpen(false); }}>{t('下载 YAML 文件', 'Download YAML file')}</button>}
           <button type="button" role="menuitem" className="menu-item" onClick={() => fileRef.current?.click()}>{t('导入 JSON / YAML…', 'Import JSON / YAML…')}</button>
+          {sandbox && <button type="button" role="menuitem" className="menu-item" onClick={() => { setOpen(false); setCalOpen(true); }}>{t('用生产指标校准（CSV）…', 'Calibrate from metrics (CSV)…')}</button>}
+          {sandbox && calBackup && <button type="button" role="menuitem" className="menu-item" onClick={() => { setOpen(false); undoCalibration(); showToast(t('已撤销校准', 'Calibration undone')); }}>{t('撤销校准', 'Undo calibration')}</button>}
         </div>
       )}
       {copyText !== null && (
@@ -361,7 +366,7 @@ function FileMenu() {
           const text = await f.text();
           const tp = (f.name.endsWith('.json') ? JSON.parse(text) : yaml.load(text)) as Topology;
           if (!tp || !Array.isArray(tp.nodes) || !Array.isArray(tp.edges)) throw new Error(t('缺少 nodes 或 edges', 'missing nodes or edges'));
-          setTopology({ name: tp.name || f.name, nodes: tp.nodes, edges: tp.edges }, { reset: true });
+          setTopology({ name: tp.name || f.name, nodes: tp.nodes, edges: tp.edges, ...(tp.calibration ? { calibration: tp.calibration } : {}) }, { reset: true });
           showToast(t(`已导入“${tp.name || f.name}”`, `Imported “${tp.name || f.name}”`));
         } catch (err) {
           showToast(t(`导入失败：${(err as Error).message}`, `Import failed: ${(err as Error).message}`), 'warn');

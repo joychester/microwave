@@ -72,6 +72,7 @@ const SimNode = memo(function SimNode({ id, data, selected }: NodeProps<SimNodeT
   } else if (cfg.type === 'cache') instances = t(`${cfg.params.shards} 分片`, `${cfg.params.shards} shards`);
   else if (cfg.type === 'database') instances = Number(cfg.params.replicas) > 0 ? t(`主库 + ${cfg.params.replicas} 副本`, `primary + ${cfg.params.replicas} replicas`) : t('单主库', 'single primary');
   else if (cfg.type === 'queue') instances = t(`${cfg.params.partitions} 分区`, `${cfg.params.partitions} partitions`);
+  else if (cfg.type === 'external') instances = Number(cfg.params.quotaRps) > 0 ? t(`配额 ${fmtRate(Number(cfg.params.quotaRps))}/s`, `quota ${fmtRate(Number(cfg.params.quotaRps))}/s`) : t('不限配额', 'no quota');
 
   const stats: { k: string; v: string; tone?: 'crit' | 'warn' }[] = [];
   if (cfg.type === 'client') {
@@ -94,6 +95,10 @@ const SimNode = memo(function SimNode({ id, data, selected }: NodeProps<SimNodeT
   if (s) {
     if (cfg.type === 'cache' && isFinite(s.extra.hitRatio)) foot = t(`命中率 ${fmtPct(s.extra.hitRatio)}`, `${fmtPct(s.extra.hitRatio)} hit ratio`) + (s.extra.fill !== undefined ? t(`，已装满 ${fmtPct(s.extra.fill)}`, `, ${fmtPct(s.extra.fill)} full`) : '');
     if (cfg.type === 'database') foot = t(`连接 ${s.extra.conns} / ${s.extra.maxConns}`, `${s.extra.conns} / ${s.extra.maxConns} connections`);
+    if (cfg.type === 'external') {
+      const q = s.causes.quota_exceeded ?? 0;
+      foot = q > 0 ? t(`${fmtRate(q)}/s 被限流（429）`, `${fmtRate(q)}/s throttled (429)`) : t(`配额用了 ${fmtPct(s.util)}`, `${fmtPct(s.util)} of quota used`);
+    }
     if ((cfg.type === 'service' || cfg.type === 'gateway') && (s.extra.starting || s.extra.down)) {
       foot = [s.extra.starting ? t(`${s.extra.starting} 个启动中`, `${s.extra.starting} starting`) : '', s.extra.down ? t(`${s.extra.down} 个宕机`, `${s.extra.down} down`) : ''].filter(Boolean).join(comma);
     } else if ((cfg.type === 'service' || cfg.type === 'gateway') && s.queue > 0) foot = t(`排队 ${fmtCount(s.queue)}`, `${fmtCount(s.queue)} queued`);
@@ -147,7 +152,7 @@ const SimNode = memo(function SimNode({ id, data, selected }: NodeProps<SimNodeT
         </div>
       )}
       {foot && <div className="sn-foot">{foot}</div>}
-      {cfg.type !== 'database' && <Handle type="source" position={Position.Right} className="sn-handle" />}
+      {cfg.type !== 'database' && cfg.type !== 'external' && <Handle type="source" position={Position.Right} className="sn-handle" />}
     </NodeShape>
   );
 });
@@ -268,6 +273,7 @@ function validateConnection(from: NodeCfg, to: NodeCfg, edges: EdgeCfg[], t: T):
   if (from.id === to.id) return t('不能连到自己', 'A node can’t call itself');
   if (to.type === 'client') return t('流量源只能作为起点', 'A traffic source can only be a starting point');
   if (from.type === 'database') return t('数据库没有下游调用', 'Databases don’t call anything downstream');
+  if (from.type === 'external') return t('外部依赖在你的系统之外，不会调用你的组件', 'A third-party API is outside your system; it doesn’t call your components');
   if (edges.some((e) => e.from === from.id && e.to === to.id)) return t('这两个节点之间已经有连线', 'These two nodes are already connected');
   const outs = edges.filter((e) => e.from === from.id).length;
   void outs;

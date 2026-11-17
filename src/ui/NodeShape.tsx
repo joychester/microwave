@@ -5,6 +5,7 @@ import type { NodeType } from '../engine/types';
 //   client   browser window      gateway  arched gate       lb     pointed router
 //   service  stacked replicas    cache    memory module     database  upright cylinder
 //   queue    horizontal log pipe with partition segments
+//   external a cloud with a dashed outline: outside your system boundary
 // The shape is an SVG sized to the measured content box, drawn behind the content.
 
 export const SHAPE_PAD: Record<NodeType, string> = {
@@ -15,6 +16,7 @@ export const SHAPE_PAD: Record<NodeType, string> = {
   cache: '15px 12px 15px 12px',
   database: '24px 12px 16px 12px',
   queue: '10px 26px 10px 16px',
+  external: '24px 14px 10px 14px',
 };
 
 function paths(type: NodeType, w: number, h: number, extra: { replicas: number; partitions: number }) {
@@ -64,6 +66,17 @@ function paths(type: NodeType, w: number, h: number, extra: { replicas: number; 
       const ry = 10;
       body = `M0,${ry} A${w / 2},${ry} 0 0 1 ${w},${ry} V${h - ry} A${w / 2},${ry} 0 0 1 0,${h - ry} Z`;
       deco.push(`M0,${ry} A${w / 2},${ry} 0 0 0 ${w},${ry}`);
+      break;
+    }
+    case 'external': {
+      // flat-bottomed cloud: a row of bumps along the top
+      const top = 14, r = 10;
+      const n = Math.max(3, Math.round((w - 2 * r) / 34));
+      const step = (w - 2 * r) / n;
+      let d = `M${r},${h} Q0,${h} 0,${h - r} V${top + 6} Q0,${top} ${r},${top}`;
+      for (let i = 0; i < n; i++) d += ` A${step / 2},${top - 2} 0 0 1 ${r + step * (i + 1)},${top}`;
+      d += ` Q${w},${top} ${w},${top + 6} V${h - r} Q${w},${h} ${w - r},${h} Z`;
+      body = d;
       break;
     }
     case 'queue': {

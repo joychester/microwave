@@ -1,0 +1,10 @@
+# Peak-hour metrics for the "E-commerce checkout reference" preset.
+# Load the preset, then: import/export menu → Calibrate from metrics (CSV) → Open CSV file.
+# Blank cells keep the template value.
+name,type,qps,avg_ms,p99_ms,cpu_util,pods,cores_per_pod,threads_per_pod,db_pool_per_pod,max_connections,hit_ratio
+User traffic,client,625,,,,,,,,,
+API Gateway,gateway,625,43.9,,,,,,,,
+Catalog service,service,625,32.3,,42.5%,8,2,,,,
+Orders service,service,188,60.1,,13.9%,4,2,,20,,
+Postgres,database,488,9.3,,,,,,,200,
+Redis,cache,1874,0.58,,,,,,,,0.92

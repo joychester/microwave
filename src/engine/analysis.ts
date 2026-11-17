@@ -258,6 +258,20 @@ export function analyze(topo: Topology, targetRps?: number, targetUtil = 0.7, tS
         e.plan = [{ label: L('主库并行数', 'Parallel executions'), param: 'workers', current: w, needed: Math.max(1, Math.ceil((lp * Seff) / targetUtil)) }];
         break;
       }
+      case 'external': {
+        // a black box: no queueing on our side; what binds is the provider's allowance
+        const S = mean(p.latency as Dist);
+        const q = num(p, 'quotaRps'), cap = num(p, 'maxConcurrent');
+        const byRate = q > 0 ? l / q : 0;
+        const byConc = cap > 0 ? (lms * S) / cap : 0;
+        e.latency = S;
+        e.util = Math.max(byRate, byConc);
+        e.utilKind = byConc > byRate ? L('并发配额', 'concurrency quota') : L('速率配额', 'rate quota');
+        if (byConc > byRate) e.plan = [{ label: L('并发上限', 'Concurrent limit'), param: 'maxConcurrent', current: cap, needed: Math.max(1, Math.ceil((lms * S) / targetUtil)) }];
+        else if (q > 0) e.plan = [{ label: L('配额（rps）', 'Quota (rps)'), param: 'quotaRps', current: q, needed: Math.max(1, Math.ceil(l / targetUtil)) }];
+        if (e.plan) e.note = L('配额由对方决定，提高它意味着升级套餐或改合同；否则要在调用方限流、加缓存或排队削峰', 'The provider sets this quota. Raising it means a bigger plan or contract; otherwise throttle callers, cache responses or queue the work');
+        break;
+      }
       case 'queue': {
         e.latency = mean(p.produceLatency as Dist);
         const outs = out.get(id) ?? [];

@@ -4,7 +4,7 @@ export type Lang = 'zh' | 'en';
 export interface Text { zh: string; en: string }
 export const L = (zh: string, en: string): Text => ({ zh, en });
 
-export type NodeType = 'client' | 'gateway' | 'lb' | 'service' | 'cache' | 'database' | 'queue';
+export type NodeType = 'client' | 'gateway' | 'lb' | 'service' | 'cache' | 'database' | 'queue' | 'external';
 
 export type Dist =
   | { dist: 'constant'; value: number }
@@ -34,6 +34,19 @@ export interface Topology {
   name: string;
   nodes: NodeCfg[];
   edges: EdgeCfg[];
+  /** Set when parameters were backsolved from production metrics (see engine/calibrate.ts). */
+  calibration?: CalibrationRecord;
+}
+
+export interface CalibrationRecord {
+  /** Where the metrics came from, e.g. the CSV file name. */
+  source: string;
+  /** ISO timestamp of when calibration was applied. */
+  appliedAt: string;
+  /** Components matched by name. */
+  components: number;
+  /** Median absolute error of the verification run, 0..1, when one was run. */
+  medianError?: number;
 }
 
 export interface FailureSpec {
@@ -59,6 +72,8 @@ export interface NodeSample {
   wasted: number; // completions after caller already gave up
   p50: number;
   p99: number;
+  /** Mean latency of the requests sampled this second (ms). */
+  mean?: number;
   util: number; // worker utilisation 0..1
   cpu: number; // cpu utilisation 0..1
   queue: number;

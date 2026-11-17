@@ -13,11 +13,13 @@ import { useLang, useT } from './i18n';
 import { useDocumentPrefs } from './theme';
 import { levelById, useGame } from './game';
 import { Countdown, GameHud, GameLayer } from './GameUI';
+import { CalibrateDialog } from './CalibrateDialog';
 
-const PALETTE: NodeType[] = ['client', 'gateway', 'lb', 'service', 'cache', 'database', 'queue'];
+const PALETTE: NodeType[] = ['client', 'gateway', 'lb', 'service', 'cache', 'database', 'queue', 'external'];
 const SHORT: Record<NodeType, { zh: string; en: string }> = {
   client: { zh: '流量源', en: 'Traffic' }, gateway: { zh: 'Gateway', en: 'Gateway' }, lb: { zh: 'LB', en: 'LB' },
   service: { zh: '微服务', en: 'Service' }, cache: { zh: '缓存', en: 'Cache' }, database: { zh: '数据库', en: 'Database' }, queue: { zh: '消息队列', en: 'Queue' },
+  external: { zh: '外部依赖', en: '3rd-party' },
 };
 
 function Palette() {
@@ -158,6 +160,7 @@ export function App() {
         <Shortcuts />
         <DocPrefs />
         <GameLayer />
+        <CalibrateDialog />
       </div>
     </ReactFlowProvider>
   );

@@ -85,6 +85,13 @@ interface State {
   edgePeak: number;
 
   setFlowWidth: (on: boolean) => void;
+  /** Calibration dialog open. */
+  calOpen: boolean;
+  /** Topology before the last calibration was applied, for undo. Cleared when another topology loads. */
+  calBackup: Topology | null;
+  setCalOpen: (open: boolean) => void;
+  applyCalibrated: (t: Topology) => void;
+  undoCalibration: () => void;
 
   setLang: (l: Lang) => void;
   setTheme: (t: Theme) => void;
@@ -165,6 +172,19 @@ export const useStore = create<State>((set, get) => ({
   flowWidth: PREFS.flowWidth,
   edgeRate: {},
   edgePeak: 0,
+  calOpen: false,
+  calBackup: null,
+  setCalOpen: (open) => set({ calOpen: open }),
+  applyCalibrated: (t) => {
+    const prev = get().topology;
+    get().setTopology(t, { reset: true });
+    set({ calBackup: prev });
+  },
+  undoCalibration: () => {
+    const b = get().calBackup;
+    if (!b) return;
+    get().setTopology(b, { reset: true });
+  },
 
   setFlowWidth: (on) => {
     set({ flowWidth: on });
@@ -183,7 +203,7 @@ export const useStore = create<State>((set, get) => ({
     savePrefs({ lang: get().lang, theme: th, flowWidth: get().flowWidth });
   },
   setTopology: (t, opts) => {
-    set({ topology: t, selection: null, loadSeq: get().loadSeq + 1, edgeRate: {}, edgePeak: 0 });
+    set({ topology: t, selection: null, loadSeq: get().loadSeq + 1, edgeRate: {}, edgePeak: 0, calBackup: null });
     saveTopology(t);
     if (opts?.reset) get().reset();
     else scheduleSync(t);

@@ -19,6 +19,7 @@ const NAMES = {
   multi: N('多流量源叠加', 'Multiple traffic sources'),
   canary: N('金丝雀发布', 'Canary release'), v1: N('商品服务 v1', 'Catalog v1'), v2: N('商品服务 v2（金丝雀）', 'Catalog v2 (canary)'),
   batch: N('批处理任务', 'Batch jobs'), push: N('App 推送', 'App push'), three: N('三层架构', 'Three-tier app'), blank: N('空白画布', 'Blank canvas'),
+  payment: N('结算与第三方支付', 'Checkout with a payment provider'), checkout: N('结算服务', 'Checkout service'), pay: N('支付商 API', 'Payment provider API'),
 };
 
 let LANG: Lang = 'zh';
@@ -124,11 +125,33 @@ export function canaryTopology(lang: Lang = 'zh'): Topology {
   };
 }
 
+// A checkout path that depends on a payment provider: the classic way an outside slowdown
+// eats your own thread pool.
+export function paymentTopology(lang: Lang = 'zh'): Topology {
+  LANG = lang;
+  const client = node('client', 'client', NAMES.traffic, 0, 200, { rps: 300, mix: '/:1', sloAvail: 0.999, sloP99: 1500 });
+  const gw = node('gw', 'gateway', NAMES.gw, 260, 200, { instances: 2 });
+  const checkout = node('checkout', 'service', NAMES.checkout, 520, 200, { instances: 3, workers: 60, serviceTime: ln(15, 80), cpuFraction: 0.35 });
+  const pg = node('pg', 'database', NAMES.pg, 800, 60, { workers: 8, readTime: ln(2, 20), writeTime: ln(4, 30) });
+  const pay = node('pay', 'external', NAMES.pay, 800, 340, { latency: ln(250, 1200), errorRate: 0.003, quotaRps: 400, quotaBurst: 100, costPer1k: 0.01 });
+  return {
+    name: NAMES.payment[lang],
+    nodes: [client, gw, checkout, pg, pay],
+    edges: [
+      edge(client, gw, { timeout: 5000 }),
+      edge(gw, checkout, { timeout: 4000 }),
+      edge(checkout, pg, { order: 0, timeout: 500, poolSize: 10 }),
+      edge(checkout, pay, { order: 1, probability: 0.3, timeout: 3000, maxAttempts: 2, backoffBase: 100 }),
+    ],
+  };
+}
+
 export const TOPOLOGY_PRESETS: { id: string; label: Text; make: (lang: Lang) => Topology }[] = [
   { id: 'reference', label: NAMES.ref, make: referenceTopology },
   { id: 'multi', label: NAMES.multi, make: multiSourceTopology },
   { id: 'canary', label: NAMES.canary, make: canaryTopology },
   { id: 'three-tier', label: NAMES.three, make: threeTierTopology },
+  { id: 'payment', label: NAMES.payment, make: paymentTopology },
   { id: 'blank', label: NAMES.blank, make: blankTopology },
 ];
 
@@ -194,6 +217,15 @@ export const SCENARIOS: Scenario[] = [
     id: 'crash', label: L('实例宕机', 'Instance crash'), topology: 'reference',
     description: L('订单服务 1 个实例崩溃。健康检查摘除之前，LB 还会继续往它发请求。', 'One Orders service instance crashes. Until health checks remove it, the LB keeps sending it requests.'),
     failure: { nodeId: 'order', kind: 'instanceDown', params: { count: 1 }, duration_s: 60, recovery_s: 0 },
+  },
+  {
+    id: 'payslow', label: L('支付商变慢', 'Payment provider slowdown'), topology: 'payment',
+    description: L(
+      '支付商 API 变慢 6 倍，持续 60 秒。结算服务的线程都在等它，线程池被占满，连不需要付款的请求也开始失败。试试把支付调用的超时改成 1 秒，再打开熔断和降级。',
+      'The payment provider gets 6× slower for 60 seconds. Checkout threads sit waiting on it, the pool fills, and even requests that never pay start failing. Try a 1 s timeout on the payment call, then turn on the circuit breaker with a fallback.',
+    ),
+    failure: { nodeId: 'pay', kind: 'slow', params: { multiplier: 6 }, duration_s: 60, recovery_s: 0 },
+    requires: ['checkout', 'pay'],
   },
 ];
 

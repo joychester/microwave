@@ -20,7 +20,62 @@ Click the clock in the top bar to pick a run length (1, 2, 5, 10 or 30 minutes o
 ## Traffic splitting and the cache model
 
 - **Exclusive routing.** Traffic sources and load balancers can have several outgoing edges; each request takes exactly one, chosen by **weight**. Gateway routes with the same prefix are split by weight too. On services and caches, outgoing edges marked **Exclusive choice** within the same call order are reduced to one call per request. Edges show their share (for example 90% / 10%), which covers canaries, A/B tests and multi-region setups. Unmarked edges are still called every time (plain dependencies). See the **Canary release** preset.
+- **Edge width follows traffic.** Each edge's width scales with its calls/s on a log scale, relative to the busiest edge seen in the current run, smoothed over about 3 seconds. Particles show only that traffic is moving and how it fares (ok, failed, retried); the exact rate stays on the edge label. Toggle it with the button under the zoom controls (bottom left).
 - **Cache hit ratio.** Set it directly, or let it **follow capacity**: the steady-state LRU hit ratio is computed with Che's approximation from shards × keys per shard, total key space and access skew (Zipf). After a flush or a cold start the cache starts at 0 and every successful origin fetch puts one key back, so the hit ratio warms up over time; if origin fetches slow the database down, warm-up slows down too. See the **Cache warm-up** scenario.
+
+## Third-party APIs
+
+The **Third-party API** component (dashed cloud in the palette) stands for a service you don't run: a payment provider, SMS, maps, an LLM. Modeling one as a regular service would be misleading, because you can't add instances or CPU to someone else's system. What you live with instead:
+
+- **Response time and error rate**, as seen from your side. Its internals are a black box.
+- **Quota**: requests per second (a token bucket with a burst allowance) and optionally a cap on calls in flight. Calls over either get **429**, which shows up as "Provider quota (429)" in failure causes.
+- **Cost per 1,000 calls**, added to the running cost. Calls rejected with 429 are not billed.
+- **Faults**: provider slowdown, outage, error spike, and quota cut (throttled to a share of the quota).
+
+It is a leaf: it has no outgoing calls. The defenses live on the edge that calls it: timeout, retries, retry budget, circuit breaker and fallback. Its utilization is the share of quota in use, and the Capacity tab plans quota rather than instances. In calibration, its `avg_ms` becomes its response time directly.
+
+The **Checkout with a payment provider** preset and the **Payment provider slowdown** scenario show the classic failure: the provider gets 6× slower, Checkout threads sit waiting on it, and even requests that never pay start failing. A 1 s timeout, no retries and a circuit breaker with a fallback contain it: during the fault, availability stays near 99% and p99 near 1 s, against 94% and 4 s without them.
+
+## Calibrating against production
+
+Out of the box every service time is a guess. Calibration replaces the guesses with values backsolved from a few metrics you already have, so the simulated "today" matches your production baseline and what-if runs start from something credible.
+
+1. Build (or load) the topology so its component names match your services.
+2. Open the import/export menu (top right) → **Calibrate from metrics (CSV)…**. **Fill template from canvas** gives you a CSV with every component's name to start from.
+3. Fill in metrics from a typical peak hour, all from the same 5–15 minute window. Blank cells keep the template value.
+4. **Preview calibration** shows every parameter that would change and flags inputs that can't all be true. **Apply and verify** applies the values and runs 60 simulated seconds at the measured load, then shows measured vs simulated values with the error for each. **Undo calibration** puts the previous topology back.
+
+| Column | Meaning |
+|---|---|
+| `name` | Component name on the canvas (case-insensitive) |
+| `type` | Optional check: client, gateway, lb, service, cache, database, queue, external |
+| `qps` | Requests per second arriving at the component |
+| `avg_ms` | Server-side mean response time, including its downstream calls (for a cache: the command itself) |
+| `p99_ms` | Optional; sets the tail shape of the processing time |
+| `cpu_util` | CPU utilization against the CPU limit: `0.38`, `38` or `38%` |
+| `pods`, `cores_per_pod`, `threads_per_pod` | Instances, CPU limit per pod, thread pool size |
+| `db_pool_per_pod` | Connection pool size per pod, applied to the component's database calls |
+| `max_connections`, `hit_ratio` | Database connection limit; cache hit ratio |
+
+```csv
+name,type,qps,avg_ms,p99_ms,cpu_util,pods,cores_per_pod,threads_per_pod,db_pool_per_pod,max_connections,hit_ratio
+Catalog service,service,625,32.3,,42.5%,8,2,,,,
+Orders service,service,188,60.1,,13.9%,4,2,,20,,
+Postgres,database,488,9.3,,,,,,,200,
+```
+
+A complete example for the **E-commerce checkout reference** preset is in `examples/calibration-reference.csv`.
+
+How the backsolve works:
+
+- **Structural values are copied in:** pods, cores, threads, pool sizes, connection limits, hit ratios and the entry rate. If a traffic source has no row, its rate is taken from the measured QPS of what it calls.
+- **Service times are fitted iteratively** against the analytical model. The model predicts each component's mean response time (own time + queueing + downstream calls), and own time is adjusted until the prediction matches `avg_ms`. Databases and caches settle first, then their callers, so the call graph is solved bottom-up.
+- **CPU share of a service's own time comes from the utilization law:** CPU time per request = CPU% × pods × cores ÷ QPS. **CPU overhead** in the dialog removes CPU that isn't caused by requests (GC, sidecars, logging, cron).
+- **Sanity checks** flag routed traffic that differs from the measured QPS by more than 15%, CPU that can't fit inside the request, response times shorter than the downstream calls, thread pools or database connections near their limit, and baselines already above 85% utilization (where extrapolation is less reliable).
+
+Limits: a service with several endpoints gets one blended processing time, so the baseline matches but a change in endpoint mix may not. One time window cannot pin down a database's non-linear contention (USL α, β); those keep their template values.
+
+`npx tsx scripts/check-calibration.ts` runs a round trip: it hides changed parameters in a "production" copy of the reference topology, measures it by simulation, calibrates the untouched template, and checks that the simulator reproduces the measurements and that the hidden values come back.
 
 ## Challenge mode
 
@@ -51,6 +106,7 @@ npm run sim -- slowdb 200   # one scenario only, 200 simulated seconds
 npm run levels     # level balance test
 npx tsx scripts/check-traffic.ts         # traffic models and multi-source superposition
 npx tsx scripts/check-routing-cache.ts   # split ratios and cache warm-up
+npx tsx scripts/check-calibration.ts     # calibration round trip against a hidden "production"
 ```
 
 ## Layout
@@ -58,7 +114,7 @@ npx tsx scripts/check-routing-cache.ts   # split ratios and cache warm-up
 ```
 src/engine/          simulation core with no UI dependency (runs on its own in Node)
   types.ts           types for topology, parameters and metric snapshots
-  specs.ts           parameter definitions for the 7 components and the call edge (defaults, ranges, help); forms are generated from it
+  specs.ts           parameter definitions for the 8 components and the call edge (defaults, ranges, help); forms are generated from it
   dist.ts            random numbers and distributions (lognormal is given as median + p99)
   sim.ts             request-level discrete-event simulator
   analysis.ts        analytical layer: forced flow law, M/G/c (Erlang C + Allen-Cunneen), USL, capacity plans
@@ -67,16 +123,19 @@ src/engine/          simulation core with no UI dependency (runs on its own in N
   cost.ts            running cost model ($/hour)
   traffic.ts         traffic models: base model + overlays, evaluation and replay parsing
   cachemodel.ts      cache hit ratio: Zipf + Che's approximation (LRU)
+  calibrate.ts       calibration: CSV parsing, backsolving parameters from production metrics, verification run
 src/game/            levels and scoring (no UI dependency)
   worker.ts          Web Worker entry (falls back to the main thread when workers are unavailable)
 src/ui/              React UI: React Flow canvas, inspector, uPlot charts, capacity analysis
   i18n.ts            language switch: components use t('中文', 'English'); engine text is {zh, en}
   theme.ts           light and dark chart palettes (checked for color blindness and contrast)
-  NodeShape.tsx      a distinct outline per component (browser window, arch, router, replicas, memory stick, cylinder, pipe)
+  NodeShape.tsx      a distinct outline per component (browser window, arch, router, replicas, memory stick, cylinder, pipe, dashed cloud)
   game.ts / GameUI.tsx  challenge mode: level select, briefing, HUD, countdown, results
   sound.ts           WebAudio synthesized sound effects (off by default)
   TrafficEditor.tsx  traffic model editor (model cards, curve preview)
   runs.ts / Report.tsx  timed runs and run reports
+  CalibrateDialog.tsx   calibrate from production metrics: CSV input, preview, verification
+examples/            sample calibration CSV
 scripts/run-scenarios.ts   headless scenario runner
 ```
 
@@ -91,6 +150,7 @@ scripts/run-scenarios.ts   headless scenario runner
 | Cache | One thread per shard + hit/miss split | Hot shard; misses go to the origin (outgoing edge); cache-aside write-back; the cache timeout covers only the cache operation |
 | Database | Parallel execution slots + connection limit + read/write split | USL: S × (1 + α(N−1) + βN(N−1)); queueing bounded by max connections; failover |
 | Message queue | Partitioned buffer + consumer group | Effective parallelism = min(consumers, partitions); rebalance pauses; failed messages retried, then dead-lettered |
+| Third-party API | Black-box delay + quota | Sampled response time and error rate; the provider's quota as a token bucket on rate plus an optional in-flight cap, both answered with 429; billed per call; no capacity of your own to scale |
 | Call edge | Timeout, retries, circuit breaker, connection pool | Exponential backoff + full jitter; retry budget; three-state breaker; a pool per caller instance, counted against the database connection limit |
 
 When a caller times out, the callee keeps working. The **wasted work** metric counts exactly that, and it is the root of retry storms and metastable failures.
