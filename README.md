@@ -2,6 +2,14 @@
 
 Build a microservice topology by drag and drop, tune capacity, timeouts, retries and circuit breakers, inject faults, and watch bottlenecks, SLO impact and cascading failures in real time. An analytical model alongside the simulation gives steady-state capacity estimates.
 
+![SimBench during a cache stampede: Redis is flushed, origin traffic floods Postgres, and failures spread upstream to the Catalog service and the gateway](docs/images/hero-en.png)
+
+*The Cache stampede scenario: Redis is flushed, misses flood Postgres, and failures climb upstream. Red cards are failing components; edge width shows traffic volume.*
+
+![Run report after a two-minute run: availability, average and p95 latency, time within SLO, the knee point and the first component to saturate](docs/images/report-en.png)
+
+*A timed run ends with a report: availability, average and p95 latency, time within SLO, the knee point (the entry rate where the SLO starts breaking) and the first component to saturate.*
+
 The UI is in English by default and can be switched to Chinese (中文); light and dark modes are both available (top right). The choice is saved in the browser. On first load it follows the browser language and the system theme.
 
 中文说明见 [README.zh-CN.md](README.zh-CN.md).
