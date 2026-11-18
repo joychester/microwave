@@ -23,7 +23,11 @@ Select any traffic source and pick how traffic arrives in the **Traffic model** 
 
 Everything can be changed while the simulation runs; a red line on the curve preview marks the current time. Each traffic source has its own model, and their traffic adds up wherever they share components (see the **Multiple traffic sources** preset).
 
-Click the clock in the top bar to pick a run length (1, 2, 5, 10 or 30 minutes of simulated time). The run stops on its own, and the **Run report** shows availability, average latency, peak latency at the SLO percentile, time within SLO, the knee (the incoming rate at which the SLO keeps breaking), the first component to saturate, peak utilization per component, failure causes and cost, compared with the previous run. Reports can be copied as Markdown.
+Click the clock in the top bar to pick a run length (1, 2, 5, 10 or 30 minutes of simulated time). The run stops on its own, and the **Report** tab shows availability, average latency, peak latency at the SLO percentile, time within SLO, the knee (the incoming rate at which the SLO keeps breaking), the first component to saturate, peak utilization per component, failure causes and cost. Reports can be copied as Markdown.
+
+**Comparing runs.** Each report is compared with the previous run of the same topology by default; **Compare with** picks any other run of that topology (the last 10 runs are kept). A **What changed** box lists every configuration difference between the two runs: components and calls added or removed, and each parameter or traffic model that changed, with the old value struck through and the new one highlighted. If parameters were edited while a run was going, the report says so, since its results mix both settings.
+
+**Exporting.** **Export** in the report bar downloads three kinds of file: this run alone as Markdown (no comparison), this run's raw data as JSON (every metric, per-component statistics and the full configuration it ran with), and a comparison report as Markdown (both runs side by side, what changed, and better/worse for each metric).
 
 **Latency SLO percentile.** The latency SLO is set on the traffic source and measured at **p95** by default; switch it to **p99** under the traffic source's SLO settings. The top bar, node cards, charts, SLO check and run reports all follow that choice. Average latency is shown alongside it in the top bar, the inspector, the latency charts and the run report. Challenge mode always uses p99, so level scores stay comparable.
 
@@ -106,6 +110,24 @@ How the backsolve works:
 Limits: a service with several endpoints gets one blended processing time, so the baseline matches but a change in endpoint mix may not. One time window cannot pin down a database's non-linear contention (USL α, β); those keep their template values.
 
 `npx tsx scripts/check-calibration.ts` runs a round trip: it hides changed parameters in a "production" copy of the reference topology, measures it by simulation, calibrates the untouched template, and checks that the simulator reproduces the measurements and that the hidden values come back.
+
+## Finding the limit
+
+The **Capacity** tab answers "how much traffic can this system take?" by simulation as well as by formula. Under **Find the limit by simulation**, pick a criterion and press **Find the limit**:
+
+- **Utilization cap** (default, ≤ 70%): the busiest component (CPU, thread pool, DB connections, cache shards, third-party quota) must stay under the cap. The 70% default leaves room for bursts and for losing an instance.
+- **Hold the SLO**: availability and latency must stay within the client's SLO.
+
+How it runs:
+
+- **Stepping:** it resets the run and scales every traffic source together, starting from today's traffic. Each step settles for 15 s and is then measured for 15 s of simulated time. Load grows 1.25× per step while passing and drops when a step fails.
+- **Narrowing down:** the utilization criterion interpolates between the last passing step and the first failing one. The SLO criterion bisects to within 5%.
+- **Queue backlog counts as a failure.** If a queue's lag keeps growing during a step, its consumers can't keep up, so that load is not sustainable however low the CPU is.
+- **Hold, then stop.** The estimated limit is held for the chosen time (default 1 min). If the hold fails, it backs off a little and tries again, up to 3 times. Then the run stops by itself.
+
+The result card shows the limit (requests/s and multiple of today's traffic), **what limited it** and the busiest components at that load. **Details and export** shows every step and exports the result as Markdown. The last five results are kept for the session.
+
+On the e-commerce reference, the limit is about 1.11× today's traffic. The constraint is not CPU: the Kafka order-events consumers (6, on 12 partitions) fall behind at the next step.
 
 ## Challenge mode
 

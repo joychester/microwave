@@ -201,6 +201,8 @@ export const CAUSE_LABELS: Record<string, Text> = {
 
 // ---------------------------------------------------------------- simulator
 export class Simulator {
+  /** Multiplies every traffic source's rate; the capacity-limit search steps it. */
+  loadScale = 1;
   now = 0;
   private heap = new EventHeap();
   private rng: Rng;
@@ -916,7 +918,7 @@ export class Simulator {
     }
     const s = this.intensity(rt.cfg.id, 'surge');
     r *= 1 + ((s.f?.params.multiplier ?? 1) - 1) * s.v;
-    return r;
+    return r * this.loadScale;
   }
 
   private pathMixCache = new Map<string, { path: string; w: number }[]>();

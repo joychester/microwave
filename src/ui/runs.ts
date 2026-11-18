@@ -9,6 +9,7 @@ import { useStore } from './store';
 import { useGame } from './game';
 import { play } from './sound';
 import { sloPct, type Pct } from './format';
+import { limitActive } from './limit';
 
 export const DURATIONS = [60, 120, 300, 600, 1800]; // seconds; capped at 30 minutes
 
@@ -43,10 +44,19 @@ export interface RunReport {
   slo: { avail: number; p99: number };
   /** Latency percentile the SLO and the latency figures use. Fields named p99* hold this percentile. */
   pct: Pct;
+  /** Configuration when the run started, for comparing runs. */
+  config: Topology;
+  /** Parameters were edited while this run was going; the report reflects a mix of both. */
+  editedMidRun: boolean;
 }
 
 interface Acc extends Omit<RunReport, 'id' | 'name' | 'avail' | 'p99Avg' | 'latAvg' | 'offeredAvg' | 'costAvg'> {
-  latWeighted: number; p99Sum: number; offeredSum: number; costSum: number; kneeStreak: number; satStreak: Record<string, number>;
+  topoRef: Topology; topoSig: string; latWeighted: number; p99Sum: number; offeredSum: number; costSum: number; kneeStreak: number; satStreak: Record<string, number>;
+}
+
+/** Everything that affects a run, without canvas positions (dragging a node is not an edit). */
+function configSig(t: Topology): string {
+  return JSON.stringify([t.nodes.map((n) => [n.id, n.type, n.name, n.params]), t.edges]);
 }
 
 function newAcc(topo: Topology, duration: number, lang: 'zh' | 'en', t0: number): Acc {
@@ -60,12 +70,18 @@ function newAcc(topo: Topology, duration: number, lang: 'zh' | 'en', t0: number)
     knee: null, firstSaturated: null, causes: {}, nodes: {}, lagMax: 0, ampMax: 1,
     slo: { avail: Number(client?.params.sloAvail ?? 0.999), p99: Number(client?.params.sloP99 ?? 500) },
     pct: sloPct(topo),
+    config: JSON.parse(JSON.stringify(topo)), editedMidRun: false, topoRef: topo, topoSig: configSig(topo),
     latWeighted: 0, p99Sum: 0, offeredSum: 0, costSum: 0, kneeStreak: 0, satStreak: {},
   };
 }
 
 function addSnap(a: Acc, s: Snapshot, topo: Topology) {
   a.seconds += 1;
+  if (topo !== a.topoRef) {
+    a.topoRef = topo;
+    const sig = configSig(topo);
+    if (sig !== a.topoSig) { a.editedMidRun = true; a.topoSig = sig; }
+  }
   const sys = s.sys;
   a.requests += sys.req; a.ok += sys.ok; a.fail += sys.fail;
   const lat = sys[a.pct];
@@ -110,8 +126,10 @@ function addSnap(a: Acc, s: Snapshot, topo: Topology) {
 
 function finalize(a: Acc, id: number): RunReport {
   const done = a.ok + a.fail;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { topoRef, topoSig, latWeighted, p99Sum, offeredSum, costSum, kneeStreak, satStreak, ...rest } = a;
   return {
-    ...a, id, name: `#${id}`,
+    ...rest, id, name: `#${id}`,
     avail: done > 0 ? a.ok / done : 1,
     p99Avg: a.seconds > 0 ? a.p99Sum / a.seconds : 0,
     latAvg: a.requests > 0 ? a.latWeighted / a.requests : 0,
@@ -157,7 +175,7 @@ function complete() {
   if (!r.acc || r.acc.seconds < 2) return;
   const id = r.seq + 1;
   const rep = finalize(r.acc, id);
-  useRuns.setState({ reports: [rep, ...r.reports].slice(0, 6), seq: id, acc: null, baseT: r.acc.t0 + r.acc.seconds });
+  useRuns.setState({ reports: [rep, ...r.reports].slice(0, 10), seq: id, acc: null, baseT: r.acc.t0 + r.acc.seconds });
   st.setDock('report');
   st.showToast(st.lang === 'en' ? `Run ${rep.name} finished: report is ready` : `运行 ${rep.name} 已结束，报告已生成`);
   play('win');
@@ -165,6 +183,7 @@ function complete() {
 
 useStore.subscribe((s, prev) => {
   if (useGame.getState().mode === 'challenge') return;
+  if (limitActive()) return; // the capacity-limit search drives the simulation; it is not a timed run
   // reset → new run
   if (s.history.length === 0 && prev.history.length > 0) { useRuns.setState({ acc: null, baseT: 0 }); return; }
   if (s.history === prev.history || s.history.length === 0) return;

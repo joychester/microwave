@@ -11,6 +11,7 @@ import { NumberInput } from './ParamField';
 import { Glyph } from './Glyph';
 import { ReportPanel } from './Report';
 import { useRuns } from './runs';
+import { LimitPanel } from './LimitPanel';
 
 export function Dock() {
   const t = useT();
@@ -22,7 +23,7 @@ export function Dock() {
     { id: 'charts', label: t('系统指标', 'Metrics') },
     { id: 'capacity', label: t('容量分析', 'Capacity') },
     { id: 'events', label: t('事件', 'Events') },
-    { id: 'report', label: t('运行报告', 'Run report') },
+    { id: 'report', label: t('报告', 'Report') },
   ];
   const reportCount = useRuns((r) => r.reports.length);
   return (
@@ -181,6 +182,7 @@ function Capacity() {
           <label><span>{t('目标利用率', 'Target utilization')}</span><NumberInput value={targetUtil} min={0.1} max={0.95} step={0.05} scale={100} unit="%" onCommit={setTargetUtil} /></label>
           <button type="button" className="btn btn--primary" disabled={changes.length === 0} onClick={apply}>{t('应用规划', 'Apply plan')}</button>
         </div>
+        <LimitPanel />
       </div>
       <div className="cap-table-wrap">
         <table className="cap-table">

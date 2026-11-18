@@ -109,6 +109,9 @@ interface State {
   toggle: () => void;
   reset: () => void;
   setSpeed: (v: number) => void;
+  /** Multiplier on every traffic source (capacity-limit search); back to 1 on reset. */
+  loadScale: number;
+  setLoadScale: (v: number) => void;
   inject: (spec: FailureSpec, at_s?: number) => void;
   clearFailure: (id: string) => void;
   setDock: (tab: DockTab | null) => void;
@@ -261,9 +264,11 @@ export const useStore = create<State>((set, get) => ({
   reset: () => {
     send({ type: 'pause' });
     send({ type: 'reset', topo: get().topology });
-    set({ running: false, simTime: 0, history: [], latest: null, events: [], unseenEvents: 0, failures: [], pending: [], activeScenario: null, bottleneckId: null, edgeRate: {}, edgePeak: 0 });
+    set({ running: false, simTime: 0, history: [], latest: null, events: [], unseenEvents: 0, failures: [], pending: [], activeScenario: null, bottleneckId: null, edgeRate: {}, edgePeak: 0, loadScale: 1 });
   },
   setSpeed: (v) => { send({ type: 'speed', value: v }); set({ speed: v }); },
+  loadScale: 1,
+  setLoadScale: (v) => { send({ type: 'loadScale', value: v }); set({ loadScale: v }); },
   inject: (spec, at_s) => send({ type: 'inject', spec, at_s }),
   clearFailure: (id) => send({ type: 'clearFailure', id }),
   setDock: (tab) => {

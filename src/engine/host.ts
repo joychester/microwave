@@ -10,10 +10,13 @@ export type ToWorker =
   | { type: 'pause' }
   | { type: 'speed'; value: number }
   | { type: 'inject'; spec: FailureSpec; at_s?: number }
-  | { type: 'clearFailure'; id: string };
+  | { type: 'clearFailure'; id: string }
+  /** Multiply every traffic source's rate (capacity-limit search). 1 = as configured. */
+  | { type: 'loadScale'; value: number };
 
 export function createHost(post: (m: unknown) => void, maxEvents = 600_000) {
 let sim: Simulator | null = null;
+let loadScale = 1;
 let running = false;
 let speed = 5;
 let lastWall = performance.now();
@@ -72,17 +75,18 @@ function handle(m: ToWorker) {
     case 'reset':
       lastTopo = m.topo;
       sim = new Simulator(m.topo, m.seed ?? 7);
+      loadScale = 1;
       pending = [];
       achieved = 0;
       flush();
       break;
     case 'sync':
       lastTopo = m.topo;
-      if (!sim) sim = new Simulator(m.topo);
+      if (!sim) { sim = new Simulator(m.topo); sim.loadScale = loadScale; }
       else sim.sync(m.topo);
       break;
     case 'run':
-      if (!sim && lastTopo) sim = new Simulator(lastTopo);
+      if (!sim && lastTopo) { sim = new Simulator(lastTopo); sim.loadScale = loadScale; }
       running = true;
       lastWall = performance.now();
       break;
@@ -97,6 +101,10 @@ function handle(m: ToWorker) {
       if (m.at_s !== undefined && m.at_s * 1000 > sim.now) pending.push({ spec: m.spec, at: m.at_s * 1000 });
       else sim.inject(m.spec);
       flush();
+      break;
+    case 'loadScale':
+      loadScale = m.value;
+      if (sim) sim.loadScale = m.value;
       break;
     case 'clearFailure':
       pending = pending.filter((p) => p.spec.id !== m.id);
