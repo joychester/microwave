@@ -14,6 +14,7 @@ import { useDocumentPrefs } from './theme';
 import { levelById, useGame } from './game';
 import { Countdown, GameHud, GameLayer } from './GameUI';
 import { CalibrateDialog } from './CalibrateDialog';
+import { LessonGuide, LessonHighlight, LessonList, Welcome } from './LearnUI';
 
 const PALETTE: NodeType[] = ['client', 'gateway', 'lb', 'service', 'cache', 'database', 'queue', 'external'];
 const SHORT: Record<NodeType, { zh: string; en: string }> = {
@@ -41,6 +42,7 @@ function Palette() {
             <li key={ty}>
               <button
                 type="button"
+                data-learn={`pal-${ty}`}
                 className={`pal-item${ok ? '' : ' is-locked'}`}
                 disabled={!ok}
                 draggable={ok}
@@ -49,7 +51,12 @@ function Palette() {
                   const el = document.querySelector('.canvas');
                   const r = el?.getBoundingClientRect();
                   const p = screenToFlowPosition({ x: (r?.left ?? 0) + (r?.width ?? 800) / 2, y: (r?.top ?? 0) + (r?.height ?? 600) / 2 });
-                  const n = newNode(ty, Math.round(p.x - 104 + (Math.random() - 0.5) * 60), Math.round(p.y - 50 + (Math.random() - 0.5) * 60), useStore.getState().topology.nodes, lang);
+                  const nodes = useStore.getState().topology.nodes;
+                  let px = Math.round(p.x - 104 + (Math.random() - 0.5) * 60);
+                  const py = Math.round(p.y - 50 + (Math.random() - 0.5) * 60);
+                  // keep clear of existing nodes: step right until the spot is free
+                  for (let i = 0; i < 12 && nodes.some((m) => Math.abs(m.x - px) < 240 && Math.abs(m.y - py) < 140); i++) px += 260;
+                  const n = newNode(ty, px, py, nodes, lang);
                   const d = mode === 'challenge' ? level?.newNodeDefaults[ty] : undefined;
                   if (d) n.params = { ...n.params, ...d };
                   addNode(n);
@@ -149,6 +156,7 @@ export function App() {
         <main className="stage">
           <Canvas />
           <ScenarioBanner />
+          <LessonGuide />
           <GameHud />
           <Countdown />
           <Toast />
@@ -161,6 +169,9 @@ export function App() {
         <DocPrefs />
         <GameLayer />
         <CalibrateDialog />
+        <LessonList />
+        <Welcome />
+        <LessonHighlight />
       </div>
     </ReactFlowProvider>
   );

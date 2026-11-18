@@ -6,6 +6,8 @@ import { useStore } from './store';
 import { useLang, useT } from './i18n';
 import { fmtAvail, fmtClock, fmtLatency, fmtRate, sloPct, windowSys } from './format';
 import { fmtCost } from '../engine/cost';
+import { useLearn } from './learn';
+import { lessonById } from '../learn/lessons';
 import { levelById, useGame } from './game';
 import { play } from './sound';
 import { DURATIONS, useRuns } from './runs';
@@ -30,6 +32,10 @@ export function TopBar() {
   const showSelect = useGame((g) => g.showSelect);
   const level = levelById(useGame((g) => g.levelId));
   const challenge = mode === 'challenge';
+  const learning = useLearn((l) => l.active);
+  const openLessons = useLearn((l) => l.openList);
+  const exitLesson = useLearn((l) => l.exit);
+  const lesson = lessonById(useLearn((l) => l.lessonId));
   const canRun = !challenge || phase === 'playing';
 
   return (
@@ -52,10 +58,22 @@ export function TopBar() {
           </button>
           <button type="button" className="btn btn--ghost" onClick={exitChallenge}>{t('退出挑战', 'Exit')}</button>
         </div>
+      ) : learning ? (
+        <div className="mode-chip">
+          <button type="button" className="menu-btn" onClick={openLessons}>
+            <span className="menu-k">{t('学习', 'Learn')}</span>
+            <span className="menu-v">{lesson ? t(`第 ${lesson.num} 课`, `Lesson ${lesson.num}`) : t('课程', 'Lessons')}</span>
+          </button>
+          <button type="button" className="btn btn--ghost" onClick={() => exitLesson(false)}>{t('退出学习', 'Exit')}</button>
+        </div>
       ) : (
         <>
           <TopologyMenu />
           <ScenarioMenu />
+          <button type="button" className="btn btn--learn" onClick={() => { play('click'); openLessons(); }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 5.5 8 2.5l6.5 3L8 8.5z M4 7v3.5c0 1 1.8 2 4 2s4-1 4-2V7 M14.5 5.5v4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            {t('学习', 'Learn')}
+          </button>
           <button type="button" className="btn btn--challenge" onClick={() => { play('click'); enterChallenge(); }}>
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2h8v3a4 4 0 0 1-8 0V2Z M4 3H1.5v1.5A2.5 2.5 0 0 0 4 7 M12 3h2.5v1.5A2.5 2.5 0 0 1 12 7 M8 9v3 M5 14h6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
             {t('挑战模式', 'Challenge')}
@@ -64,7 +82,7 @@ export function TopBar() {
       )}
 
       <div className="transport">
-        <button type="button" className={`play${running ? ' is-running' : ''}`} onClick={toggle} disabled={!canRun} aria-label={running ? t('暂停', 'Pause') : t('运行', 'Run')} title={t('空格键', 'Space')}>
+        <button type="button" data-learn="run" className={`play${running ? ' is-running' : ''}`} onClick={toggle} disabled={!canRun} aria-label={running ? t('暂停', 'Pause') : t('运行', 'Run')} title={t('空格键', 'Space')}>
           {running
             ? <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="3" width="3" height="10" rx="1" fill="currentColor" /><rect x="9.5" y="3" width="3" height="10" rx="1" fill="currentColor" /></svg>
             : <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.8v10.4L13 8z" fill="currentColor" /></svg>}

@@ -129,6 +129,15 @@ The result card shows the limit (requests/s and multiple of today's traffic), **
 
 On the e-commerce reference, the limit is about 1.11× today's traffic. The constraint is not CPU: the Kafka order-events consumers (6, on 12 partitions) fall behind at the next step.
 
+## Learning mode
+
+**Learn** in the top bar opens a guided course: one idea per lesson, learned by doing in the real workbench. First-time visitors are offered lesson 1 when the app opens.
+
+- **Lesson 1, Meet the workbench (about 6 min):** build a traffic source → service system, run it, read throughput, availability, average and p95 latency and CPU, scale in from 3 instances to 1, and inject a slowdown.
+- Each lesson has steps that the app checks for itself (a node exists, a parameter has a value, the condition held for N seconds of simulated time), predictions answered before a run and revealed with the measured numbers, and explanations that quote the learner's own results.
+- Starting a lesson saves the current workbench; leaving restores it (also after a reload mid-lesson). At the end you can keep the lesson's topology and keep experimenting.
+- Lessons live in `src/learn/lessons/` as data: starting topology, steps, checks, predictions and text in both languages. Lessons 2–7 (queueing, databases, caching, retries, queues, capacity planning) are planned.
+
 ## Challenge mode
 
 Click the gold **Challenge** button in the top bar. Five levels, each harder than the last:
@@ -177,6 +186,7 @@ src/engine/          simulation core with no UI dependency (runs on its own in N
   cachemodel.ts      cache hit ratio: Zipf + Che's approximation (LRU)
   calibrate.ts       calibration: CSV parsing, backsolving parameters from production metrics, verification run
 src/game/            levels and scoring (no UI dependency)
+src/learn/           learning-mode lessons: topology, steps, checks, predictions
   worker.ts          Web Worker entry (falls back to the main thread when workers are unavailable)
 src/ui/              React UI: React Flow canvas, inspector, uPlot charts, capacity analysis
   i18n.ts            language switch: components use t('中文', 'English'); engine text is {zh, en}

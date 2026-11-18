@@ -13,6 +13,7 @@ import { useStore } from './store';
 import { Glyph } from './Glyph';
 import { NodeShape } from './NodeShape';
 import { levelById, useGame } from './game';
+import { useLearn } from './learn';
 import { describeProgram, evalProgram, isProgram } from '../engine/traffic';
 import { useLang, useT, type T } from './i18n';
 import { fmtAvail, fmtCount, fmtLatency, fmtPct, fmtRate, nodeHealth, sloPct, utilLabel } from './format';
@@ -324,12 +325,17 @@ export function Canvas() {
   // refit when a different topology is loaded
   const loadSeq = useStore((s) => s.loadSeq);
   const inChallenge = useGame((g) => g.mode === 'challenge');
+  const learning = useLearn((l) => l.active);
+  // in a lesson, also refit as the learner adds nodes, leaving room for the guide card on the left
+  const nodeCount = useStore((s) => (useLearn.getState().active ? s.topology.nodes.length : 0));
   useEffect(() => {
     const h = setTimeout(() => fitView(inChallenge
       ? { padding: { top: '190px', bottom: '24px', left: '24px', right: '24px' }, duration: 300 }
-      : { padding: 0.06, duration: 300 }), 60);
+      : learning
+        ? { padding: { top: '60px', bottom: '60px', left: '420px', right: '60px' }, maxZoom: 0.9, duration: 300 }
+        : { padding: 0.06, duration: 300 }), 60);
     return () => clearTimeout(h);
-  }, [loadSeq, fitView, inChallenge]);
+  }, [loadSeq, fitView, inChallenge, learning, nodeCount]);
 
   const markerColor = theme === 'dark' ? '#7d8a97' : '#8593a0';
   const byFlow = useStore((st) => st.flowWidth);

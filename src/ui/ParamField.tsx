@@ -63,7 +63,7 @@ export function ParamField({ spec, value, onChange, disabled }: { spec: ParamSpe
 
   if (spec.kind === 'bool') {
     return (
-      <fieldset className="pf pf--bool" disabled={disabled} title={disabled ? lockTitle : undefined}>
+      <fieldset data-param={spec.key} className="pf pf--bool" disabled={disabled} title={disabled ? lockTitle : undefined}>
         <label className="switch" htmlFor={id}>
           <input id={id} type="checkbox" checked={!!value} onChange={(e) => onChange(e.target.checked)} />
           <span className="switch-track" aria-hidden="true" />
@@ -77,7 +77,7 @@ export function ParamField({ spec, value, onChange, disabled }: { spec: ParamSpe
   if (spec.kind === 'enum') {
     const opts = spec.options ?? [];
     return (
-      <fieldset className="pf" disabled={disabled} title={disabled ? lockTitle : undefined}>
+      <fieldset data-param={spec.key} className="pf" disabled={disabled} title={disabled ? lockTitle : undefined}>
         <label className="pf-label" htmlFor={id}>{label}{disabled && <Lock />}</label>
         {opts.length <= 3 ? (
           <div className="seg" role="radiogroup" aria-label={label}>
@@ -97,7 +97,7 @@ export function ParamField({ spec, value, onChange, disabled }: { spec: ParamSpe
 
   if (spec.kind === 'text') {
     return (
-      <fieldset className="pf" disabled={disabled} title={disabled ? lockTitle : undefined}>
+      <fieldset data-param={spec.key} className="pf" disabled={disabled} title={disabled ? lockTitle : undefined}>
         <label className="pf-label" htmlFor={id}>{label}{disabled && <Lock />}</label>
         <TextInput id={id} value={String(value ?? '')} onCommit={onChange} />
         {help && <p className="pf-help">{help}</p>}
@@ -109,7 +109,7 @@ export function ParamField({ spec, value, onChange, disabled }: { spec: ParamSpe
     const d = value as Dist;
     const ln = d.dist === 'lognormal' ? d : d.dist === 'constant' ? { dist: 'lognormal' as const, median: d.value, p99: d.value } : { dist: 'lognormal' as const, median: d.mean * 0.69, p99: d.mean * 4.6 };
     return (
-      <fieldset className="pf" disabled={disabled} title={disabled ? lockTitle : undefined}>
+      <fieldset data-param={spec.key} className="pf" disabled={disabled} title={disabled ? lockTitle : undefined}>
         <span className="pf-label">{label}{disabled && <Lock />}</span>
         <div className="dist">
           <label><span>{t('中位数', 'Median')}</span><NumberInput value={ln.median} min={0.01} step={1} unit="ms" onCommit={(v) => onChange({ dist: 'lognormal', median: v, p99: Math.max(v, ln.p99) })} /></label>
@@ -127,7 +127,7 @@ export function ParamField({ spec, value, onChange, disabled }: { spec: ParamSpe
   const showSlider = spec.kind === 'ratio' || max - min <= 600;
   const step = spec.step ?? (spec.kind === 'int' || spec.kind === 'ms' || spec.kind === 'seconds' ? 1 : 0.01);
   return (
-    <fieldset className="pf" disabled={disabled} title={disabled ? lockTitle : undefined}>
+    <fieldset data-param={spec.key} className="pf" disabled={disabled} title={disabled ? lockTitle : undefined}>
       <div className="pf-row">
         <label className="pf-label" htmlFor={id}>{label}{disabled && <Lock />}</label>
         <NumberInput id={id} value={v} min={min} max={max} step={step} unit={unit} scale={scale} onCommit={(x) => onChange(spec.kind === 'int' ? Math.round(x) : x)} />

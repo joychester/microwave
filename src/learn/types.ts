@@ -1,0 +1,98 @@
+// Learning mode: guided lessons. A lesson is a starting topology plus a list of steps.
+// Each step is checked against the live store, so the learner can do it any way they like.
+import type { FailureView, Selection } from '../ui/store';
+import type { Lang, Snapshot, Text, Topology } from '../engine/types';
+
+/** Averages over a measured window of the run. */
+export interface Measure {
+  rps: number;
+  avg: number; // mean end-to-end latency, ms
+  p95: number; // ms
+  avail: number; // 0..1
+  cpu: number; // CPU utilization of the lesson's main service, 0..1
+  instances: number;
+}
+
+export interface LessonCtx {
+  lang: Lang;
+  topo: Topology;
+  selection: Selection;
+  running: boolean;
+  /** Sim seconds. */
+  now: number;
+  failures: FailureView[];
+  latest: Snapshot | null;
+  /** Measurements recorded by earlier steps, by key. */
+  meas: Record<string, Measure>;
+  /** Chosen option index of each prediction step, by step id. */
+  answers: Record<string, number>;
+}
+
+type Dyn<T> = T | ((c: LessonCtx) => T);
+
+interface StepBase {
+  id: string;
+  title: Text;
+  body: Dyn<Text>;
+  /** CSS selector of the UI element to point at. */
+  highlight?: Dyn<string | null>;
+}
+
+/** The learner does something; the step completes when `check` holds (for `hold` sim seconds, if set). */
+export interface DoStep extends StepBase {
+  kind: 'do';
+  check: (c: LessonCtx) => boolean;
+  /** Seconds of simulated time the condition must hold. */
+  hold?: number;
+  /** Seconds at the start of the hold left out of the measurement (the system settling). */
+  settle?: number;
+  /** Record the measured window under this key. */
+  measure?: string;
+  /** Shown once the step is done. */
+  feedback?: Dyn<Text>;
+}
+
+export interface PredictOption {
+  label: Text;
+  /** Range of the measured value this option stands for: [low, high). */
+  range: [number, number];
+}
+
+/** A multiple-choice prediction, answered before the run that reveals it. */
+export interface PredictStep extends StepBase {
+  kind: 'predict';
+  options: PredictOption[];
+}
+
+/** Text only, with a Next button. The last step of a lesson is one of these. */
+export interface ReadStep extends StepBase {
+  kind: 'read';
+}
+
+export type Step = DoStep | PredictStep | ReadStep;
+
+export interface Lesson {
+  id: string;
+  num: number;
+  title: Text;
+  summary: Text;
+  minutes: number;
+  make: (lang: Lang) => Topology;
+  /** Simulation speed while the lesson runs. */
+  speed?: number;
+  steps: Step[];
+  /** Challenge level to try next, if any. */
+  challenge?: string;
+}
+
+/** A lesson that is planned but not written yet; shown in the list as coming soon. */
+export interface PlannedLesson {
+  id: string;
+  num: number;
+  title: Text;
+  summary: Text;
+}
+
+export function dyn<T>(v: Dyn<T>, c: LessonCtx): T {
+  return typeof v === 'function' ? (v as (c: LessonCtx) => T)(c) : v;
+}

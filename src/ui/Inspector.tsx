@@ -216,7 +216,7 @@ function FailureRow({ node, spec }: { node: NodeCfg; spec: FailureKindSpec }) {
   const [rec, setRec] = useState(spec.defaultRecovery ?? 0);
 
   return (
-    <div className="fr">
+    <div className="fr" data-fault={spec.kind}>
       <div className="fr-head">
         <div>
           <div className="fr-label">{spec.label[lang]}</div>
