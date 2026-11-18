@@ -1,4 +1,13 @@
 import type { NodeSample, NodeType, Snapshot, Topology } from '../engine/types';
+import { histCount, histPct, mergeHists, type Hist } from '../engine/hist';
+
+/** Percentiles of all requests in several seconds, from the per-second histograms; null if they are missing. */
+export function pooledPct(hs: (Hist | undefined)[]): { p50: number; p95: number; p99: number } | null {
+  if (hs.some((h) => !h)) return null;
+  const m = mergeHists(hs);
+  if (histCount(m) === 0) return { p50: 0, p95: 0, p99: 0 };
+  return { p50: histPct(m, 0.5), p95: histPct(m, 0.95), p99: histPct(m, 0.99) };
+}
 
 export function fmtRate(v: number): string {
   if (!isFinite(v)) return '—';
@@ -52,6 +61,7 @@ export function sloPct(topo: Topology): Pct {
 }
 
 // ---------- windowed aggregation over the last N snapshots
+// Percentiles are over all requests in the window (merged histograms), not the max or mean of per-second values.
 export function windowSys(history: Snapshot[], n = 5) {
   const w = history.slice(-n);
   if (w.length === 0) return null;
@@ -65,6 +75,8 @@ export function windowSys(history: Snapshot[], n = 5) {
     p50 += s.sys.p50;
     latSum += (s.sys.mean ?? s.sys.p50) * s.sys.req;
   }
+  const pooled = pooledPct(w.map((s) => s.sys.hist));
+  if (pooled) { p50 = pooled.p50 * w.length; p95 = pooled.p95; p99 = pooled.p99; }
   return {
     rps: req / w.length,
     okRps: ok / w.length,
@@ -80,18 +92,19 @@ export function windowSys(history: Snapshot[], n = 5) {
   };
 }
 
-export function windowNode(history: Snapshot[], id: string, n = 3): NodeSample | null {
+export function windowNode(history: Snapshot[], id: string, n = 5): NodeSample | null {
   const w = history.slice(-n).map((s) => s.nodes[id]).filter(Boolean) as NodeSample[];
   if (w.length === 0) return null;
   const last = w[w.length - 1];
   const avg = (k: keyof NodeSample) => w.reduce((s, x) => s + (x[k] as number), 0) / w.length;
+  const pooled = pooledPct(w.map((x) => x.hist));
   return {
     ...last,
     arr: avg('arr'), ok: avg('ok'), err: avg('err'), wasted: avg('wasted'),
-    util: avg('util'), cpu: avg('cpu'), p50: avg('p50'),
+    util: avg('util'), cpu: avg('cpu'), p50: pooled ? pooled.p50 : avg('p50'),
     mean: (() => { const n = w.reduce((s, x) => s + x.ok + x.err, 0); return n > 0 ? w.reduce((s, x) => s + (x.mean ?? x.p50) * (x.ok + x.err), 0) / n : 0; })(),
-    p95: Math.max(...w.map((x) => x.p95 ?? x.p99)),
-    p99: Math.max(...w.map((x) => x.p99)),
+    p95: pooled ? pooled.p95 : Math.max(...w.map((x) => x.p95 ?? x.p99)),
+    p99: pooled ? pooled.p99 : Math.max(...w.map((x) => x.p99)),
   };
 }
 

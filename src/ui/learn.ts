@@ -7,6 +7,7 @@ import { mainService } from '../learn/helpers';
 import { useStore } from './store';
 import { useGame } from './game';
 import { play } from './sound';
+import { pooledPct } from './format';
 
 const LS_PROGRESS = 'simbench.learn.v1';
 const LS_BACKUP = 'simbench.learn.backup.v1';
@@ -141,12 +142,16 @@ function measure(from: number): Measure {
   const c = lessonCtx();
   const svc = mainService(c);
   const n = Math.max(1, snaps.length);
-  let req = 0, ok = 0, avg = 0, p95 = 0, cpu = 0;
+  let req = 0, ok = 0, done = 0, latSum = 0, cpu = 0;
   for (const x of snaps) {
-    req += x.sys.req; ok += x.sys.ok; avg += x.sys.mean; p95 += x.sys.p95;
+    const d = x.sys.ok + x.sys.fail;
+    req += x.sys.req; ok += x.sys.ok; done += d; latSum += x.sys.mean * d;
     if (svc) cpu += x.nodes[svc.id]?.cpu ?? 0;
   }
-  return { rps: req / n, avg: avg / n, p95: p95 / n, avail: req > 0 ? ok / req : 1, cpu: cpu / n, instances: Number(svc?.params.instances ?? 0) };
+  // p95 of every request in the window, not an average of per-second p95s
+  const pooled = pooledPct(snaps.map((x) => x.sys.hist));
+  const p95 = pooled ? pooled.p95 : snaps.reduce((a, x) => a + x.sys.p95, 0) / n;
+  return { rps: req / n, avg: done > 0 ? latSum / done : 0, p95, avail: done > 0 ? ok / done : 1, cpu: cpu / n, instances: Number(svc?.params.instances ?? 0) };
 }
 
 /** Checks the current step against the store; called on every relevant change. */

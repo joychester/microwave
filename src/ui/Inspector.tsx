@@ -76,7 +76,7 @@ function NodeInspector({ node }: { node: NodeCfg }) {
   const params = useMemo(() => withDefaults(spec.params, node.params), [spec, node.params]);
   const LEGACY_TRAFFIC = new Set(['rps', 'pattern', 'burstMult', 'burstEvery', 'burstDur', 'diurnalPeriod', 'diurnalTrough']);
   const groups = groupSpecs(spec.params.filter((s) => node.type !== 'client' || !LEGACY_TRAFFIC.has(s.key)), params);
-  const live = windowNode(history, node.id, 3);
+  const live = windowNode(history, node.id, 5);
   const level = useLevel();
   const nodeLocked = !!level?.lockedNodes.includes(node.id);
 
@@ -115,7 +115,7 @@ function NodeInspector({ node }: { node: NodeCfg }) {
       {history.length > 2 && (
         <div className="ins-charts">
           <TimeChart compact title={node.type === 'queue' ? t('积压', 'Lag') : t('每秒请求', 'Requests/s')} x={x} series={rateSeries} unit={node.type === 'queue' ? '' : '/s'} height={92} />
-          <TimeChart compact title={node.type === 'queue' ? t('消息延迟', 'Message latency') : t('延迟', 'Latency')} x={x} series={latSeries} unit="ms" height={92} />
+          <TimeChart compact title={node.type === 'queue' ? t('消息延迟（每秒）', 'Message latency (per second)') : t('延迟（每秒）', 'Latency (per second)')} x={x} series={latSeries} unit="ms" height={92} />
         </div>
       )}
 

@@ -10,6 +10,7 @@
 // Each step: settle (queues and caches adjust), then measure. Utilization grows almost linearly with
 // load, so once a passing and a failing step bracket the threshold, the limit is interpolated
 // between them; the SLO criterion is not linear, so it bisects instead.
+import { addHist, histCount, histPct } from '../engine/hist';
 import { create } from 'zustand';
 import type { Snapshot, Topology } from '../engine/types';
 import { useStore } from './store';
@@ -45,7 +46,8 @@ export interface LimitResult {
   ranking: { id: string; name: string; util: number }[];
   /** What stopped the next step up: the component and why. */
   limitedBy?: { name: string; reason: 'util' | 'backlog' | 'slo' };
-  hold: { avail: number; latAvg: number; latMax: number; pct: 'p95' | 'p99'; peakUtil: number };
+  /** lat: SLO percentile over every request of the hold; latMax: worst single second. */
+  hold: { avail: number; lat: number; latMax: number; pct: 'p95' | 'p99'; peakUtil: number };
   note?: 'below-today' | 'max-scale' | 'stopped';
   finishedAt: string;
 }
@@ -59,7 +61,7 @@ interface Window {
   offeredSum: number;
   badStreak: number;
   sloBroken: boolean;
-  okSum: number; doneSum: number; latW: number; latMax: number;
+  okSum: number; doneSum: number; latW: number; latMax: number; hist: Map<number, number>;
   /** message queues: backlog at the first and last measured second, and messages in */
   lag: Record<string, { first: number; last: number; inSum: number }>;
 }
@@ -89,7 +91,7 @@ const GROW = 1.25;
 const MAX_SCALE = 50;
 const MAX_STEPS = 24;
 
-const newWin = (start: number): Window => ({ start, utilSum: {}, n: 0, offeredSum: 0, badStreak: 0, sloBroken: false, okSum: 0, doneSum: 0, latW: 0, latMax: 0, lag: {} });
+const newWin = (start: number): Window => ({ start, utilSum: {}, n: 0, offeredSum: 0, badStreak: 0, sloBroken: false, okSum: 0, doneSum: 0, latW: 0, latMax: 0, hist: new Map(), lag: {} });
 
 export const useLimit = create<LimitState>((set, get) => ({
   phase: 'idle',
@@ -172,7 +174,7 @@ function finish(note?: LimitResult['note'], hold?: { w: Window; topo: Topology }
     result = {
       id, topology: topo.name, criterion: L.criterion, threshold: L.threshold, holdSeconds: L.holdSeconds,
       limitScale: L.scale, limitRps: sm.offered, baseRps: base, steps: L.steps, ranking: sm.ranking.slice(0, 5),
-      hold: { avail: hold.w.doneSum > 0 ? hold.w.okSum / hold.w.doneSum : 1, latAvg: hold.w.n > 0 ? hold.w.latW / hold.w.n : 0, latMax: hold.w.latMax, pct: slo.pct, peakUtil: sm.peak },
+      hold: { avail: hold.w.doneSum > 0 ? hold.w.okSum / hold.w.doneSum : 1, lat: histCount(hold.w.hist) > 0 ? histPct(hold.w.hist, slo.pct === 'p99' ? 0.99 : 0.95) : hold.w.n > 0 ? hold.w.latW / hold.w.n : 0, latMax: hold.w.latMax, pct: slo.pct, peakUtil: sm.peak },
       note: L.scale < 1 ? 'below-today' : undefined,
       limitedBy: (() => { const hi = L.steps.filter((s) => !s.pass && s.scale > L.scale).sort((a, b) => a.scale - b.scale)[0]; return hi?.reason ? { name: hi.bottleneck, reason: hi.reason } : undefined; })(),
       finishedAt: new Date().toISOString(),
@@ -182,7 +184,7 @@ function finish(note?: LimitResult['note'], hold?: { w: Window; topo: Topology }
     result = {
       id, topology: topo.name, criterion: L.criterion, threshold: L.threshold, holdSeconds: L.holdSeconds,
       limitScale: note === 'max-scale' ? null : lastPass?.scale ?? null, limitRps: lastPass?.offered ?? 0, baseRps: base, steps: L.steps,
-      ranking: [], hold: { avail: 0, latAvg: 0, latMax: 0, pct: slo.pct, peakUtil: 0 }, note, finishedAt: new Date().toISOString(),
+      ranking: [], hold: { avail: 0, lat: 0, latMax: 0, pct: slo.pct, peakUtil: 0 }, note, finishedAt: new Date().toISOString(),
     };
   }
   useLimit.setState({ phase: 'idle', win: null, results: [result, ...L.results].slice(0, 5), seq: id });
@@ -275,7 +277,7 @@ useStore.subscribe((s, prev) => {
       const q = (w.lag[n.id] ??= { first: lag, last: lag, inSum: 0 });
       q.last = lag; q.inSum += snap.nodes[n.id].arr;
     }
-    w.okSum += snap.sys.ok; w.doneSum += done; w.latW += lat; w.latMax = Math.max(w.latMax, lat);
+    w.okSum += snap.sys.ok; w.doneSum += done; w.latW += lat; w.latMax = Math.max(w.latMax, lat); addHist(w.hist, snap.sys.hist);
     if (cur.phase === 'step' && age >= SETTLE + MEASURE) endStep(cur, w, topo, snap.t);
     else if (cur.phase === 'hold' && age >= SETTLE + cur.holdSeconds) endHold(cur, w, topo, snap.t);
   }

@@ -107,7 +107,7 @@ function SystemCharts() {
 
   return (
     <div className="charts">
-      <TimeChart title={t('端到端延迟', 'End-to-end latency')} x={x} series={lat} unit="ms" height={chartH} />
+      <TimeChart title={t('端到端延迟（每秒）', 'End-to-end latency (per second)')} x={x} series={lat} unit="ms" height={chartH} />
       <TimeChart title={t('用户请求结果', 'User request outcomes')} x={x} series={reqs} unit="/s" height={chartH} />
       <TimeChart title={t('资源利用率（取线程、CPU 中较高者）', 'Utilization (higher of threads and CPU)')} x={x} series={util} unit="%" yMin={0} yMax={100} height={chartH} />
       {causes.length > 0

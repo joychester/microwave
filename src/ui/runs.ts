@@ -1,5 +1,6 @@
 // Timed sandbox runs and their reports. Statistics are accumulated per second,
 // so a 30-minute report does not depend on the (capped) chart history.
+import { addHist, histCount, histPct } from '../engine/hist';
 import { create } from 'zustand';
 import { costPerHour } from '../engine/cost';
 import { NODE_SPECS } from '../engine/specs';
@@ -13,7 +14,14 @@ import { limitActive } from './limit';
 
 export const DURATIONS = [60, 120, 300, 600, 1800]; // seconds; capped at 30 minutes
 
-interface NodeAcc { name: string; type: string; peakUtil: number; peakT: number; p99Max: number; err: number; arrMax: number }
+interface NodeAcc {
+  name: string; type: string; peakUtil: number; peakT: number;
+  /** Worst single-second latency at the SLO percentile. */
+  p99Max: number;
+  /** Latency at the SLO percentile over every request of the run. */
+  pctAll: number;
+  err: number; arrMax: number;
+}
 
 export interface RunReport {
   id: number;
@@ -27,8 +35,11 @@ export interface RunReport {
   ok: number;
   fail: number;
   avail: number;
+  /** Worst single-second latency at the SLO percentile. */
   p99Max: number;
   p99Avg: number;
+  /** Latency at the SLO percentile over every request of the run (merged histograms). */
+  pctAll: number;
   /** Request-weighted mean latency over the run (ms). */
   latAvg: number;
   sloSeconds: number; // seconds that met both SLOs
@@ -50,7 +61,8 @@ export interface RunReport {
   editedMidRun: boolean;
 }
 
-interface Acc extends Omit<RunReport, 'id' | 'name' | 'avail' | 'p99Avg' | 'latAvg' | 'offeredAvg' | 'costAvg'> {
+interface Acc extends Omit<RunReport, 'id' | 'name' | 'avail' | 'p99Avg' | 'latAvg' | 'offeredAvg' | 'costAvg' | 'pctAll'> {
+  hist: Map<number, number>; nodeHist: Record<string, Map<number, number>>;
   topoRef: Topology; topoSig: string; latWeighted: number; p99Sum: number; offeredSum: number; costSum: number; kneeStreak: number; satStreak: Record<string, number>;
 }
 
@@ -72,6 +84,7 @@ function newAcc(topo: Topology, duration: number, lang: 'zh' | 'en', t0: number)
     pct: sloPct(topo),
     config: JSON.parse(JSON.stringify(topo)), editedMidRun: false, topoRef: topo, topoSig: configSig(topo),
     latWeighted: 0, p99Sum: 0, offeredSum: 0, costSum: 0, kneeStreak: 0, satStreak: {},
+    hist: new Map(), nodeHist: {},
   };
 }
 
@@ -86,6 +99,7 @@ function addSnap(a: Acc, s: Snapshot, topo: Topology) {
   a.requests += sys.req; a.ok += sys.ok; a.fail += sys.fail;
   const lat = sys[a.pct];
   a.p99Max = Math.max(a.p99Max, lat); a.p99Sum += lat;
+  addHist(a.hist, sys.hist);
   a.latWeighted += (sys.mean ?? sys.p50) * sys.req;
   a.offeredPeak = Math.max(a.offeredPeak, sys.offered); a.offeredSum += sys.offered;
   a.ampMax = Math.max(a.ampMax, sys.amplification);
@@ -101,7 +115,8 @@ function addSnap(a: Acc, s: Snapshot, topo: Topology) {
     const ns = s.nodes[n.id];
     if (!ns) continue;
     let acc = a.nodes[n.id];
-    if (!acc) acc = a.nodes[n.id] = { name: n.name, type: n.type, peakUtil: 0, peakT: 0, p99Max: 0, err: 0, arrMax: 0 };
+    if (!acc) acc = a.nodes[n.id] = { name: n.name, type: n.type, peakUtil: 0, peakT: 0, p99Max: 0, pctAll: 0, err: 0, arrMax: 0 };
+    if (n.type !== 'client') addHist(a.nodeHist[n.id] ??= new Map(), ns.hist);
     const u = n.type === 'client' || n.type === 'lb' || n.type === 'queue' ? 0 : Math.max(ns.util, ns.cpu);
     if (u > acc.peakUtil) { acc.peakUtil = u; acc.peakT = s.t; }
     acc.p99Max = Math.max(acc.p99Max, n.type === 'client' ? 0 : (ns[a.pct] ?? ns.p99));
@@ -127,9 +142,16 @@ function addSnap(a: Acc, s: Snapshot, topo: Topology) {
 function finalize(a: Acc, id: number): RunReport {
   const done = a.ok + a.fail;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { topoRef, topoSig, latWeighted, p99Sum, offeredSum, costSum, kneeStreak, satStreak, ...rest } = a;
+  const { topoRef, topoSig, latWeighted, p99Sum, offeredSum, costSum, kneeStreak, satStreak, hist, nodeHist, ...rest } = a;
+  const q = a.pct === 'p99' ? 0.99 : 0.95;
+  const nodes: Record<string, NodeAcc> = {};
+  for (const [id, n] of Object.entries(a.nodes)) {
+    const h = nodeHist[id];
+    nodes[id] = { ...n, pctAll: h && histCount(h) > 0 ? histPct(h, q) : n.p99Max };
+  }
   return {
-    ...rest, id, name: `#${id}`,
+    ...rest, nodes, id, name: `#${id}`,
+    pctAll: histCount(hist) > 0 ? histPct(hist, q) : (a.seconds > 0 ? a.p99Sum / a.seconds : 0),
     avail: done > 0 ? a.ok / done : 1,
     p99Avg: a.seconds > 0 ? a.p99Sum / a.seconds : 0,
     latAvg: a.requests > 0 ? a.latWeighted / a.requests : 0,

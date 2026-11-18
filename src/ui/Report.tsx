@@ -61,7 +61,7 @@ export function ReportPanel() {
   const tiles: Tile[] = [
     { k: t('可用性', 'Availability'), v: fmtAvail(r.avail), cur: r.avail * 100, prev: p ? p.avail * 100 : undefined, better: 'up', fmtDelta: (d) => `${d.toFixed(2)}pt`, tone: r.avail < r.slo.avail ? 'crit' : 'ok', note: `SLO ${fmtAvail(r.slo.avail)}` },
     { k: t('平均延迟', 'Avg latency'), v: fmtLatency(r.latAvg ?? 0), cur: r.latAvg ?? 0, prev: p?.latAvg, better: 'down', fmtDelta: fmtLatency, note: t('整次运行所有请求的平均值', 'Mean over every request in the run') },
-    { k: t(`${pct} 峰值`, `Peak ${pct}`), v: fmtLatency(r.p99Max), cur: r.p99Max, prev: p?.p99Max, better: 'down', fmtDelta: fmtLatency, tone: r.p99Max > r.slo.p99 ? 'crit' : 'ok', note: `SLO ${fmtLatency(r.slo.p99)}` },
+    { k: t(`${pct} 延迟`, `${pct} latency`), v: fmtLatency(r.pctAll ?? r.p99Avg), cur: r.pctAll ?? r.p99Avg, prev: p ? (p.pctAll ?? p.p99Avg) : undefined, better: 'down', fmtDelta: fmtLatency, tone: (r.pctAll ?? r.p99Avg) > r.slo.p99 ? 'crit' : 'ok', note: t(`整次运行所有请求；最差 1 秒 ${fmtLatency(r.p99Max)}；SLO ${fmtLatency(r.slo.p99)}`, `Over every request in the run; worst second ${fmtLatency(r.p99Max)}; SLO ${fmtLatency(r.slo.p99)}`) },
     { k: t('SLO 达标时间', 'Time within SLO'), v: fmtPct(r.sloSeconds / Math.max(1, r.seconds)), cur: (r.sloSeconds / Math.max(1, r.seconds)) * 100, prev: p ? (p.sloSeconds / Math.max(1, p.seconds)) * 100 : undefined, better: 'up', fmtDelta: (d) => `${d.toFixed(0)}pt` },
     {
       k: t('拐点', 'Knee point'),
@@ -96,9 +96,9 @@ export function ReportPanel() {
       ...tiles.map((x) => `- **${x.k}**: ${x.v}${x.note ? ` (${x.note})` : ''}`),
       ...(p ? ['', `## ${t(`配置变化：${p.name} → ${r.name}`, `What changed: ${p.name} → ${r.name}`)}`, '', ...(changes.length ? changes.map((c) => `- ${c.where}: ${changeText(c)}`) : [t('- 两轮配置相同', '- Same configuration')])] : []),
       '',
-      `| ${t('组件', 'Component')} | ${t('峰值利用率', 'Peak util.')} | ${t('峰值时刻', 'At')} | ${pct} ${t('峰值', 'peak')} | ${t('失败', 'Failures')} |`,
+      `| ${t('组件', 'Component')} | ${t('峰值利用率', 'Peak util.')} | ${t('峰值时刻', 'At')} | ${pct} | ${t('失败', 'Failures')} |`,
       '|---|---|---|---|---|',
-      ...nodes.map(([, n]) => `| ${n.name} | ${fmtPct(n.peakUtil)} | ${relT(n.peakT)} | ${fmtLatency(n.p99Max)} | ${fmtCount(n.err)} |`),
+      ...nodes.map(([, n]) => `| ${n.name} | ${fmtPct(n.peakUtil)} | ${relT(n.peakT)} | ${fmtLatency(n.pctAll ?? n.p99Max)} | ${fmtCount(n.err)} |`),
     ];
     try { await navigator.clipboard.writeText(lines.join('\n')); showToast(t('报告已复制为 Markdown', 'Report copied as Markdown')); }
     catch { showToast(t('浏览器不允许写剪贴板', 'The browser blocked clipboard access'), 'warn'); }
@@ -137,9 +137,9 @@ export function ReportPanel() {
       `## ${t('结果', 'Results')}`, '',
       ...xt.map((x) => `- **${x.k}**: ${x.v}${x.note ? ` (${x.note})` : ''}`), '',
       `## ${t('组件', 'Components')}`, '',
-      `| ${t('组件', 'Component')} | ${t('峰值利用率', 'Peak util.')} | ${t('峰值时刻', 'At')} | ${pct} ${t('峰值', 'peak')} | ${t('失败', 'Failures')} | ${t('峰值到达', 'Peak arrivals')} |`,
+      `| ${t('组件', 'Component')} | ${t('峰值利用率', 'Peak util.')} | ${t('峰值时刻', 'At')} | ${pct} | ${t('失败', 'Failures')} | ${t('峰值到达', 'Peak arrivals')} |`,
       '|---|---|---|---|---|---|',
-      ...nodeList(r).map(([, n]) => `| ${n.name} | ${fmtPct(n.peakUtil)} | ${rel(n.peakT)} | ${fmtLatency(n.p99Max)} | ${fmtCount(n.err)} | ${fmtRate(n.arrMax)}/s |`), '',
+      ...nodeList(r).map(([, n]) => `| ${n.name} | ${fmtPct(n.peakUtil)} | ${rel(n.peakT)} | ${fmtLatency(n.pctAll ?? n.p99Max)} | ${fmtCount(n.err)} | ${fmtRate(n.arrMax)}/s |`), '',
       `## ${t('失败原因', 'Failure causes')}`, '',
       ...(causes.length ? causes.map(([c, n]) => `- ${CAUSE_LABELS[c]?.[lang] ?? c}: ${fmtCount(n)}`) : [`- ${t('没有失败的请求', 'No failed requests')}`]),
       '',
@@ -165,11 +165,11 @@ export function ReportPanel() {
       `| ${t('指标', 'Metric')} | ${p.name} | ${r.name} | ${t('变化', 'Change')} |`, '|---|---|---|---|',
       ...b.map((x, i) => `| ${x.k} | ${a.find((y) => y.k === x.k)?.v ?? a[i]?.v ?? '—'} | ${x.v} | ${change(x)} |`), '',
       `## ${t('组件', 'Components')}`, '',
-      `| ${t('组件', 'Component')} | ${t('峰值利用率', 'Peak util.')} ${p.name} | ${r.name} | ${pct} ${t('峰值', 'peak')} ${p.name} | ${r.name} | ${t('失败', 'Failures')} ${p.name} | ${r.name} |`,
+      `| ${t('组件', 'Component')} | ${t('峰值利用率', 'Peak util.')} ${p.name} | ${r.name} | ${pct} ${p.name} | ${r.name} | ${t('失败', 'Failures')} ${p.name} | ${r.name} |`,
       '|---|---|---|---|---|---|---|',
       ...nodeList(r).map(([id, n]) => {
         const o = pn.get(id);
-        return `| ${n.name} | ${o ? fmtPct(o.peakUtil) : '—'} | ${fmtPct(n.peakUtil)} | ${o ? fmtLatency(o.p99Max) : '—'} | ${fmtLatency(n.p99Max)} | ${o ? fmtCount(o.err) : '—'} | ${fmtCount(n.err)} |`;
+        return `| ${n.name} | ${o ? fmtPct(o.peakUtil) : '—'} | ${fmtPct(n.peakUtil)} | ${o ? fmtLatency(o.pctAll ?? o.p99Max) : '—'} | ${fmtLatency(n.pctAll ?? n.p99Max)} | ${o ? fmtCount(o.err) : '—'} | ${fmtCount(n.err)} |`;
       }),
       '',
     ].join('\n');
@@ -260,7 +260,7 @@ export function ReportPanel() {
                 <th scope="col">{t('组件', 'Component')}</th>
                 <th scope="col">{t('峰值利用率', 'Peak utilization')}</th>
                 <th scope="col" className="r">{t('峰值时刻', 'At')}</th>
-                <th scope="col" className="r">{t(`${pct} 峰值`, `Peak ${pct}`)}</th>
+                <th scope="col" className="r" title={t('整次运行所有经过该组件的请求', 'Over every request through the component in the run')}>{pct}</th>
                 <th scope="col" className="r">{t('失败', 'Failures')}</th>
                 <th scope="col" className="r">{t('峰值到达', 'Peak arrivals')}</th>
               </tr>
@@ -273,7 +273,7 @@ export function ReportPanel() {
                     <th scope="row"><span className="cap-node"><Glyph type={n.type as NodeType} size={16} />{n.name}</span></th>
                     <td>{n.type === 'lb' || n.type === 'queue' ? '—' : <><span className="cap-bar"><span className={`cap-bar-fill cap-bar-fill--${tone}`} style={{ width: `${Math.min(100, n.peakUtil * 100)}%` }} /></span>{fmtPct(n.peakUtil)}</>}</td>
                     <td className="r">{n.type === 'lb' || n.type === 'queue' ? '—' : relT(n.peakT)}</td>
-                    <td className="r">{fmtLatency(n.p99Max)}</td>
+                    <td className="r" title={t(`最差 1 秒 ${fmtLatency(n.p99Max)}`, `Worst second ${fmtLatency(n.p99Max)}`)}>{fmtLatency(n.pctAll ?? n.p99Max)}</td>
                     <td className="r">{fmtCount(n.err)}</td>
                     <td className="r">{fmtRate(n.arrMax)}/s</td>
                   </tr>

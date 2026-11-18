@@ -16,7 +16,7 @@ import { levelById, useGame } from './game';
 import { useLearn } from './learn';
 import { describeProgram, evalProgram, isProgram } from '../engine/traffic';
 import { useLang, useT, type T } from './i18n';
-import { fmtAvail, fmtCount, fmtLatency, fmtPct, fmtRate, nodeHealth, sloPct, utilLabel } from './format';
+import { fmtAvail, fmtCount, fmtLatency, fmtPct, fmtRate, nodeHealth, sloPct, utilLabel, windowNode, windowSys } from './format';
 
 type SimNodeT = Node<{ cfg: NodeCfg }, 'sim'>;
 type FlowEdgeT = Edge<{ cfg: EdgeCfg; fromType: NodeType; share?: number }, 'flow'>;
@@ -31,10 +31,13 @@ const SimNode = memo(function SimNode({ id, data, selected }: NodeProps<SimNodeT
   const prevLag = useStore((st) => (st.history.length > 5 ? st.history[st.history.length - 6].nodes[id]?.extra.lag : undefined));
   const isBottleneck = useStore((st) => st.bottleneckId === id);
   const faulted = useStore((st) => st.failures.some((f) => f.nodeId === id && (f.end < 0 || f.end > st.simTime)));
-  const sysAvail = useStore((st) => (cfg.type === 'client' && st.latest ? st.latest.sys.avail : null));
+  // the numbers on the card are over the last 5 s, like the top bar and the inspector
+  const history = useStore((st) => st.history);
+  const win = useMemo(() => windowNode(history, id, 5), [history, id]);
+  const sysAvail = useMemo(() => (cfg.type === 'client' ? windowSys(history, 5)?.avail ?? null : null), [history, cfg.type]);
   const health = nodeHealth(cfg.type, s, prevLag);
-  const total = s ? s.ok + s.err : 0;
-  const errRate = total > 0 ? s!.err / total : 0;
+  const total = win ? win.ok + win.err : 0;
+  const errRate = total > 0 ? win!.err / total : 0;
   const ul = s ? utilLabel(cfg.type, s, lang) : null;
   const comma = lang === 'en' ? ', ' : '，';
   const running = useStore((st) => st.running);
@@ -79,16 +82,16 @@ const SimNode = memo(function SimNode({ id, data, selected }: NodeProps<SimNodeT
   const stats: { k: string; v: string; tone?: 'crit' | 'warn' }[] = [];
   if (cfg.type === 'client') {
     const planned = isProgram(cfg.params.traffic) ? evalProgram(cfg.params.traffic, 0) : Number(cfg.params.rps);
-    stats.push({ k: t('发出', 'Sent'), v: s ? `${fmtRate(s.arr)}/s` : `${fmtRate(planned)}/s` });
-    stats.push({ k: pct, v: s ? fmtLatency(s[pct] ?? s.p99) : '—', tone: s && (s[pct] ?? s.p99) > Number(cfg.params.sloP99) ? 'crit' : undefined });
+    stats.push({ k: t('发出', 'Sent'), v: win ? `${fmtRate(win.arr)}/s` : `${fmtRate(planned)}/s` });
+    stats.push({ k: pct, v: win ? fmtLatency(win[pct] ?? win.p99) : '—', tone: win && (win[pct] ?? win.p99) > Number(cfg.params.sloP99) ? 'crit' : undefined });
     stats.push({ k: t('可用性', 'Avail.'), v: sysAvail !== null ? fmtAvail(sysAvail) : '—', tone: sysAvail !== null && sysAvail < Number(cfg.params.sloAvail) ? 'crit' : undefined });
   } else if (cfg.type === 'queue') {
     stats.push({ k: t('写入', 'In'), v: s ? `${fmtRate(s.ok)}/s` : '—' });
     stats.push({ k: t('消费', 'Out'), v: s ? `${fmtRate(s.extra.consumed ?? 0)}/s` : '—' });
     stats.push({ k: t('积压', 'Lag'), v: s ? fmtCount(s.extra.lag ?? 0) : '—', tone: health === 'crit' ? 'crit' : health === 'warn' ? 'warn' : undefined });
   } else {
-    stats.push({ k: t('流量', 'Traffic'), v: s ? `${fmtRate(s.arr)}/s` : '—' });
-    stats.push({ k: pct, v: s ? fmtLatency(s[pct] ?? s.p99) : '—' });
+    stats.push({ k: t('流量', 'Traffic'), v: win ? `${fmtRate(win.arr)}/s` : '—' });
+    stats.push({ k: pct, v: win ? fmtLatency(win[pct] ?? win.p99) : '—' });
     stats.push({ k: t('错误', 'Errors'), v: s ? (total > 0 ? fmtPct(errRate, errRate < 0.1 && errRate > 0 ? 1 : 0) : '0%') : '—', tone: errRate > 0.05 ? 'crit' : errRate > 0.005 ? 'warn' : undefined });
   }
 

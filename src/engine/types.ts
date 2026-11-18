@@ -1,3 +1,4 @@
+import type { Hist } from './hist';
 // Topology & parameter model shared by engine and UI.
 
 export type Lang = 'zh' | 'en';
@@ -75,6 +76,8 @@ export interface NodeSample {
   p99: number;
   /** Mean latency of the requests sampled this second (ms). */
   mean?: number;
+  /** Latency histogram of the requests sampled this second (see hist.ts). */
+  hist?: Hist;
   util: number; // worker utilisation 0..1
   cpu: number; // cpu utilisation 0..1
   queue: number;
@@ -102,6 +105,8 @@ export interface SystemSample {
   p99: number;
   /** Mean end-to-end latency this second (ms). */
   mean: number;
+  /** Latency histogram of this second (see hist.ts), for true percentiles over longer windows. */
+  hist?: Hist;
   avail: number; // over this second
   amplification: number; // all edge attempts / first attempts
   causes: Record<string, number>;

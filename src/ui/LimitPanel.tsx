@@ -116,7 +116,7 @@ function LimitDetail({ r, onClose }: { r: LimitResult; onClose: () => void }) {
     `- ${t('今天的流量', 'Today’s traffic')}: ${fmtRate(r.baseRps)}/s`,
     ...(r.limitedBy ? [`- ${limitedText(r, t)}`] : []),
     ...(r.limitScale !== null && r.note !== 'stopped' ? [
-      `- ${t(`在上限保持 ${r.holdSeconds} 秒`, `Held at the limit for ${r.holdSeconds} s`)}: ${t('可用性', 'availability')} ${fmtAvail(r.hold.avail)}, ${r.hold.pct} ${t('平均', 'avg')} ${fmtLatency(r.hold.latAvg)} / ${t('最高', 'max')} ${fmtLatency(r.hold.latMax)}, ${t('最高利用率', 'peak utilization')} ${fmtPct(r.hold.peakUtil)}`,
+      `- ${t(`在上限保持 ${r.holdSeconds} 秒`, `Held at the limit for ${r.holdSeconds} s`)}: ${t('可用性', 'availability')} ${fmtAvail(r.hold.avail)}, ${r.hold.pct} ${fmtLatency(r.hold.lat)} (${t('最差 1 秒', 'worst second')} ${fmtLatency(r.hold.latMax)}), ${t('最高利用率', 'peak utilization')} ${fmtPct(r.hold.peakUtil)}`,
     ] : []),
     '', `## ${t('上限负载下各组件利用率', 'Utilization at the limit')}`, '',
     ...(r.ranking.length ? r.ranking.map((x, i) => `${i + 1}. ${x.name}: ${fmtPct(x.util)}`) : ['—']),
@@ -158,8 +158,8 @@ function LimitDetail({ r, onClose }: { r: LimitResult; onClose: () => void }) {
           <p className="cal-lead">
             {t(`今天的流量 ${fmtRate(r.baseRps)}/s。`, `Today’s traffic: ${fmtRate(r.baseRps)}/s. `)}
             {r.limitScale !== null && r.note !== 'stopped' && t(
-              `在上限保持 ${r.holdSeconds} 秒：可用性 ${fmtAvail(r.hold.avail)}，${r.hold.pct} 平均 ${fmtLatency(r.hold.latAvg)}、最高 ${fmtLatency(r.hold.latMax)}，最高利用率 ${fmtPct(r.hold.peakUtil)}。`,
-              `Held at the limit for ${r.holdSeconds} s: availability ${fmtAvail(r.hold.avail)}, ${r.hold.pct} avg ${fmtLatency(r.hold.latAvg)} / max ${fmtLatency(r.hold.latMax)}, peak utilization ${fmtPct(r.hold.peakUtil)}.`,
+              `在上限保持 ${r.holdSeconds} 秒：可用性 ${fmtAvail(r.hold.avail)}，${r.hold.pct} ${fmtLatency(r.hold.lat)}（最差 1 秒 ${fmtLatency(r.hold.latMax)}），最高利用率 ${fmtPct(r.hold.peakUtil)}。`,
+              `Held at the limit for ${r.holdSeconds} s: availability ${fmtAvail(r.hold.avail)}, ${r.hold.pct} ${fmtLatency(r.hold.lat)} (worst second ${fmtLatency(r.hold.latMax)}), peak utilization ${fmtPct(r.hold.peakUtil)}.`,
             )}
           </p>
           {r.ranking.length > 0 && (

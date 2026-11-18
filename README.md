@@ -217,6 +217,13 @@ scripts/run-scenarios.ts   headless scenario runner
 
 When a caller times out, the callee keeps working. The **wasted work** metric counts exactly that, and it is the root of retry storms and metastable failures.
 
+**How latency percentiles are counted.** Every second the engine records a latency histogram (4% buckets, about ±2% error) for the whole system and for each component. Percentiles over any period come from merging those histograms, so they cover every request in the period:
+
+- The top bar, the node cards and the inspector show the last 5 seconds.
+- The report shows the whole run, with the worst single second in the tile's note.
+- Lesson measurements and the limit search's hold use their own windows.
+- Charts plot per-second values. With a few hundred requests a second, a single second's p95 rests on about ten requests, so it jumps around; that is why the windowed numbers are steadier than the chart.
+
 ## Known simplifications
 
 - Every request to a service follows the same handler (no per-endpoint handlers); paths only matter for gateway routing
