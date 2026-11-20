@@ -30,7 +30,7 @@ export function Dock() {
     <section className={`dock${open ? '' : ' is-collapsed'}`} aria-label={t('分析面板', 'Analysis panel')}>
       <div className="dock-tabs" role="tablist">
         {tabs.map((tb) => (
-          <button key={tb.id} type="button" role="tab" aria-selected={open && tab === tb.id} className={open && tab === tb.id ? 'is-on' : ''} onClick={() => setDock(tb.id)}>
+          <button key={tb.id} type="button" role="tab" data-learn={`dock-${tb.id}`} aria-selected={open && tab === tb.id} className={open && tab === tb.id ? 'is-on' : ''} onClick={() => setDock(tb.id)}>
             {tb.label}
             {tb.id === 'events' && unseen > 0 && <span className="badge">{unseen > 99 ? '99+' : unseen}</span>}
             {tb.id === 'report' && reportCount > 0 && <span className="badge badge--neutral">{reportCount}</span>}

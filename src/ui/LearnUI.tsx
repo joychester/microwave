@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { LESSONS, PLANNED, lessonById } from '../learn/lessons';
-import { dyn } from '../learn/types';
+import { dyn, type CurvePoint } from '../learn/types';
 import type { Text } from '../engine/types';
 import { useStore } from './store';
 import { useGame } from './game';
@@ -8,6 +8,7 @@ import { LEVELS } from '../game/levels';
 import { LevelGrid, Stars, totalStars } from './GameUI';
 import { lessonCtx, useLearn } from './learn';
 import { useLang, useT } from './i18n';
+import { fmtLatency, fmtPct } from './format';
 import { play } from './sound';
 
 /** Paragraphs separated by blank lines; lines starting with "•" become a list. */
@@ -133,6 +134,46 @@ export function Welcome() {
   );
 }
 
+// ---------------------------------------------------------------- the lesson's live chart
+/** Average latency against traffic, one point per measured level, drawn as the learner measures them. */
+function LessonCurve({ points }: { points: CurvePoint[] }) {
+  const t = useT();
+  const W = 340, H = 168, x0 = 40, x1 = W - 12, y0 = 14, yb = H - 26;
+  const xs = points.map((p) => p.x);
+  const xmin = Math.min(...xs) - 10, xmax = Math.max(...xs) + 10;
+  const top = Math.max(60, ...points.map((p) => p.y)) * 1.18;
+  const step = top > 400 ? 200 : top > 200 ? 100 : top > 100 ? 50 : 20;
+  const X = (v: number) => x0 + ((v - xmin) / (xmax - xmin)) * (x1 - x0);
+  const Y = (v: number) => yb - (v / top) * (yb - y0);
+  const ticks: number[] = [];
+  for (let v = 0; v <= top; v += step) ticks.push(v);
+  return (
+    <figure className="lg-curve">
+      <figcaption>{t('平均延迟随流量的变化（你测到的点）', 'Average latency vs traffic (your measurements)')}</figcaption>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t('平均延迟随流量变化的曲线', 'Average latency against traffic')}>
+        {ticks.map((v) => (
+          <g key={v}>
+            <line x1={x0} x2={x1} y1={Y(v)} y2={Y(v)} className="lgc-grid" />
+            <text x={x0 - 6} y={Y(v) + 3.5} textAnchor="end" className="lgc-axis">{v}</text>
+          </g>
+        ))}
+        <line x1={x0} x2={x1} y1={yb} y2={yb} className="lgc-base" />
+        <polyline points={points.map((p) => `${X(p.x)},${Y(p.y)}`).join(' ')} className="lgc-line" />
+        {points.map((p) => (
+          <g key={p.x}>
+            <circle cx={X(p.x)} cy={Y(p.y)} r={4} className={p.cpu >= 0.85 ? 'lgc-dot is-hot' : 'lgc-dot'}>
+              <title>{t(`${p.x}/s：平均 ${fmtLatency(p.y)}，CPU ${fmtPct(p.cpu)}`, `${p.x}/s: average ${fmtLatency(p.y)}, CPU ${fmtPct(p.cpu)}`)}</title>
+            </circle>
+            <text x={X(p.x)} y={yb + 14} textAnchor="middle" className="lgc-axis">{p.x}</text>
+          </g>
+        ))}
+        <text x={x0} y={H - 1} className="lgc-unit">{t('流量（请求/秒）', 'Traffic (req/s)')}</text>
+        <text x={x0 - 34} y={y0 - 4} className="lgc-unit">ms</text>
+      </svg>
+    </figure>
+  );
+}
+
 // ---------------------------------------------------------------- guide card
 export function LessonGuide() {
   const t = useT();
@@ -148,6 +189,7 @@ export function LessonGuide() {
   const c = lessonCtx();
   const tx = (v: Text) => v[lang];
   const last = l.step === lesson.steps.length - 1;
+  const curve = lesson.curve ? lesson.curve(c) : [];
   const head = t(`第 ${lesson.num} 课 · ${lesson.title.zh}`, `Lesson ${lesson.num} · ${lesson.title.en}`);
 
   if (l.collapsed) {
@@ -172,6 +214,7 @@ export function LessonGuide() {
       </div>
       <h3 className="lg-title">{tx(step.title)}</h3>
       <div className="lg-body"><Prose text={tx(dyn(step.body, c))} /></div>
+      {curve.length >= 2 && <LessonCurve points={curve} />}
 
       {step.kind === 'predict' && (
         <div className="lg-options" role="group" aria-label={t('你的预测', 'Your prediction')}>

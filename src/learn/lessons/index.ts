@@ -1,12 +1,12 @@
 import { L } from '../../engine/types';
 import type { Lesson, PlannedLesson } from '../types';
 import { lesson01 } from './l01-workbench';
+import { lesson02 } from './l02-utilization';
 
-export const LESSONS: Lesson[] = [lesson01];
+export const LESSONS: Lesson[] = [lesson01, lesson02];
 
 /** The rest of the course, shown as coming soon. */
 export const PLANNED: PlannedLesson[] = [
-  { id: 'l02', num: 2, title: L('排队与利用率', 'Queueing and utilization'), summary: L('利用率过了 80% 以后，为什么流量多一点点，延迟就翻倍。', 'Why, past about 80% utilization, a little more traffic doubles the latency.') },
   { id: 'l03', num: 3, title: L('数据库与连接池', 'Databases and connection pools'), summary: L('服务 CPU 很闲，却因为等数据库而很慢。', 'A service with idle CPU that is slow because it waits on the database.') },
   { id: 'l04', num: 4, title: L('缓存', 'Caching'), summary: L('命中率从 90% 降到 70%，数据库负载变成 3 倍。', 'Hit ratio drops from 90% to 70% and database load triples.') },
   { id: 'l05', num: 5, title: L('超时与重试', 'Timeouts and retries'), summary: L('下游只慢了 3 倍，重试却把它彻底压垮。', 'The downstream is only 3× slower, but retries finish it off.') },

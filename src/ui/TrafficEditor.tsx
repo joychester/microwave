@@ -99,7 +99,7 @@ function ParamGrid({ layer, onChange }: { layer: TrafficLayer; onChange: (p: Rec
   return (
     <div className="tm-params">
       {MODEL[layer.kind].params.map((prm) => (
-        <label key={prm.key}>
+        <label key={prm.key} data-param={`tm-${layer.kind}-${prm.key}`}>
           <span>{prm.label[lang]}</span>
           <NumberInput value={layer.p[prm.key]} min={prm.min} max={prm.max} step={prm.step ?? 1} unit={UNIT[prm.unit]} onCommit={(v) => onChange({ ...layer.p, [prm.key]: v })} />
         </label>

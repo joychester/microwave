@@ -22,6 +22,8 @@ export interface LessonCtx {
   now: number;
   failures: FailureView[];
   latest: Snapshot | null;
+  dockOpen: boolean;
+  dockTab: string;
   /** Measurements recorded by earlier steps, by key. */
   meas: Record<string, Measure>;
   /** Chosen option index of each prediction step, by step id. */
@@ -48,8 +50,23 @@ export interface DoStep extends StepBase {
   settle?: number;
   /** Record the measured window under this key. */
   measure?: string;
+  /** Measure several settings in turn (e.g. traffic levels); each is recorded as `${key}${value}`. */
+  sweep?: Sweep;
   /** Shown once the step is done. */
   feedback?: Dyn<Text>;
+}
+
+/** A step that measures one setting after another: the step is done when every value is measured. */
+export interface Sweep {
+  values: number[];
+  key: string;
+  /** The setting's current value on the workbench. */
+  value: (c: LessonCtx) => number;
+}
+
+/** The next value of a sweep still to be measured, if any. */
+export function sweepNext(sw: Sweep, meas: Record<string, Measure>): number | undefined {
+  return sw.values.find((v) => !meas[`${sw.key}${v}`]);
 }
 
 export interface PredictOption {
@@ -83,7 +100,11 @@ export interface Lesson {
   steps: Step[];
   /** Challenge level to try next, if any. */
   challenge?: string;
+  /** Points for the lesson's live chart (x = traffic, y = average latency), once there are any. */
+  curve?: (c: LessonCtx) => CurvePoint[];
 }
+
+export interface CurvePoint { x: number; y: number; cpu: number }
 
 /** A lesson that is planned but not written yet; shown in the list as coming soon. */
 export interface PlannedLesson {

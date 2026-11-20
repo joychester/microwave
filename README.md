@@ -134,9 +134,10 @@ On the e-commerce reference, the limit is about 1.11× today's traffic. The cons
 **Learn** in the top bar opens one place with two tabs: **Lessons**, a guided course with one idea per lesson learned by doing in the real workbench, and **Challenges**, the levels below. Lessons teach; challenges check you can do it without hints. First-time visitors are offered lesson 1 when the app opens.
 
 - **Lesson 1, Meet the workbench (about 6 min):** build a traffic source → service system, run it, read throughput, availability, average and p95 latency and CPU, scale in from 3 instances to 1, and inject a slowdown.
+- **Lesson 2, Queueing and utilization (about 8 min):** start from one instance at 100 req/s, turn the traffic up level by level (130, 160, 180, 200, 220) while a chart of average latency against traffic builds from your own measurements, see it stay flat and then shoot up past about 85% CPU, explain it with the utilization law and 1 ÷ (1 − utilization), fix it with a second instance, and compare with the Capacity view.
 - Each lesson has steps that the app checks for itself (a node exists, a parameter has a value, the condition held for N seconds of simulated time), predictions answered before a run and revealed with the measured numbers, and explanations that quote the learner's own results.
-- Starting a lesson saves the current workbench; leaving restores it (also after a reload mid-lesson). At the end you can keep the lesson's topology and keep experimenting.
-- Lessons live in `src/learn/lessons/` as data: starting topology, steps, checks, predictions and text in both languages. Lessons 2–7 (queueing, databases, caching, retries, queues, capacity planning) are planned.
+- Starting a lesson saves the current workbench and sets the run length to 30 minutes; leaving restores both (also after a reload mid-lesson). At the end you can keep the lesson's topology and keep experimenting.
+- Lessons live in `src/learn/lessons/` as data: starting topology, steps, checks, predictions and text in both languages. Lessons 3–7 (databases, caching, retries, queues, capacity planning) are planned.
 
 ## Challenge mode
 

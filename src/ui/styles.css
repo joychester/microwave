@@ -1031,3 +1031,14 @@ fieldset.pf:disabled * { cursor: not-allowed; }
 .gm--welcome h2 { margin: 0 0 10px; }
 .gm--welcome p { color: var(--ink-2); margin: 0 0 8px; line-height: 1.6; }
 .wel-actions { display: flex; gap: 10px; margin-top: 16px; }
+
+/* lesson curve */
+.lg-curve { margin: 4px 0 8px; padding: 8px 8px 4px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--paper); }
+.lg-curve figcaption { font-size: 11.5px; color: var(--ink-2); font-weight: 600; margin-bottom: 2px; }
+.lg-curve svg { display: block; width: 100%; height: auto; }
+.lgc-grid { stroke: var(--line-2); stroke-width: 1; }
+.lgc-base { stroke: var(--line); stroke-width: 1; }
+.lgc-axis, .lgc-unit { fill: var(--ink-3); font-size: 9.5px; font-variant-numeric: tabular-nums; }
+.lgc-line { fill: none; stroke: var(--ink-3); stroke-width: 2; stroke-linejoin: round; }
+.lgc-dot { fill: var(--ink-3); stroke: var(--paper); stroke-width: 2; }
+.lgc-dot.is-hot { fill: var(--select); }

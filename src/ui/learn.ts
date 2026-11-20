@@ -2,16 +2,20 @@
 import { create } from 'zustand';
 import type { Topology } from '../engine/types';
 import { lessonById } from '../learn/lessons';
-import type { LessonCtx, Measure } from '../learn/types';
+import { sweepNext, type LessonCtx, type Measure } from '../learn/types';
 import { mainService } from '../learn/helpers';
 import { useStore } from './store';
 import { useGame } from './game';
 import { play } from './sound';
+import { DURATIONS, useRuns } from './runs';
 import { pooledPct } from './format';
 
 const LS_PROGRESS = 'simbench.learn.v1';
 const LS_BACKUP = 'simbench.learn.backup.v1';
 const LS_WELCOME = 'simbench.welcome.v1';
+/** The learner's own run length, put back when the lesson ends (lessons run long, so they use the maximum). */
+const LS_DURATION = 'simbench.learn.duration.v1';
+const LESSON_DURATION = DURATIONS[DURATIONS.length - 1];
 
 function load<T>(k: string, d: T): T {
   try { const r = localStorage.getItem(k); return r ? (JSON.parse(r) as T) : d; } catch { return d; }
@@ -93,6 +97,8 @@ export const useLearn = create<LearnState>((set, get) => ({
     if (!get().active) {
       backup = useStore.getState().topology;
       save(LS_BACKUP, backup);
+      save(LS_DURATION, useRuns.getState().duration);
+      useRuns.getState().setDuration(LESSON_DURATION);
     }
     st.pause();
     st.setScenario(null);
@@ -127,6 +133,7 @@ export const useLearn = create<LearnState>((set, get) => ({
     const b = get().backup;
     set({ active: false, lessonId: null, step: 0, stepDone: false, since: null, held: 0, backup: null, listOpen: false });
     save(LS_BACKUP, null);
+    restoreDuration();
     const st = useStore.getState();
     st.pause();
     if (!keep && b) st.setTopology(b, { reset: true });
@@ -144,7 +151,7 @@ export function lessonCtx(): LessonCtx {
   const l = useLearn.getState();
   return {
     lang: s.lang, topo: s.topology, selection: s.selection, running: s.running,
-    now: s.latest?.t ?? 0, failures: s.failures, latest: s.latest, meas: l.meas, answers: l.answers,
+    now: s.latest?.t ?? 0, failures: s.failures, latest: s.latest, dockOpen: s.dockOpen, dockTab: s.dockTab, meas: l.meas, answers: l.answers,
   };
 }
 
@@ -175,7 +182,13 @@ function evaluate() {
   const step = lesson?.steps[l.step];
   if (!step || step.kind !== 'do') return;
   const c = lessonCtx();
-  const ok = step.check(c);
+  const sw = step.sweep;
+  const target = sw ? sweepNext(sw, l.meas) : undefined;
+  if (sw && target === undefined) {
+    useLearn.setState({ stepDone: true });
+    return;
+  }
+  const ok = step.check(c) && (!sw || sw.value(c) === target);
   if (!ok) {
     if (l.since !== null || l.held) useLearn.setState({ since: null, held: 0 });
     return;
@@ -194,7 +207,14 @@ function evaluate() {
   }
   const held = now - since;
   if (held >= step.hold) {
-    const meas = step.measure ? { ...l.meas, [step.measure]: measure(since + (step.settle ?? 0)) } : l.meas;
+    const key = sw ? `${sw.key}${target}` : step.measure;
+    const meas = key ? { ...l.meas, [key]: measure(since + (step.settle ?? 0)) } : l.meas;
+    if (sw && sweepNext(sw, meas) !== undefined) {
+      // this setting is measured; wait for the next one
+      useLearn.setState({ meas, since: null, held: 0 });
+      play('click');
+      return;
+    }
     useLearn.setState({ stepDone: true, held: step.hold, meas });
     play('recover');
   } else if (held !== l.held) {
@@ -204,10 +224,17 @@ function evaluate() {
 
 useStore.subscribe((s, prev) => {
   if (!useLearn.getState().active) return;
-  if (s.latest !== prev.latest || s.topology !== prev.topology || s.selection !== prev.selection || s.failures !== prev.failures) evaluate();
+  if (s.latest !== prev.latest || s.topology !== prev.topology || s.selection !== prev.selection || s.failures !== prev.failures || s.dockTab !== prev.dockTab || s.dockOpen !== prev.dockOpen) evaluate();
 });
 
-// A lesson interrupted by a reload: put the learner's own workbench back.
+function restoreDuration() {
+  const d = load<number | null>(LS_DURATION, null);
+  if (d !== null && DURATIONS.includes(d)) useRuns.getState().setDuration(d);
+  save(LS_DURATION, null);
+}
+
+// A lesson interrupted by a reload: put the learner's own workbench and run length back.
+restoreDuration();
 const pending = load<Topology | null>(LS_BACKUP, null);
 if (pending && Array.isArray(pending.nodes)) {
   save(LS_BACKUP, null);
