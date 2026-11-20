@@ -14,7 +14,7 @@ import { useDocumentPrefs } from './theme';
 import { levelById, useGame } from './game';
 import { Countdown, GameHud, GameLayer } from './GameUI';
 import { CalibrateDialog } from './CalibrateDialog';
-import { LessonGuide, LessonHighlight, LessonList, Welcome } from './LearnUI';
+import { LearnHub, LessonGuide, LessonHighlight, Welcome } from './LearnUI';
 
 const PALETTE: NodeType[] = ['client', 'gateway', 'lb', 'service', 'cache', 'database', 'queue', 'external'];
 const SHORT: Record<NodeType, { zh: string; en: string }> = {
@@ -169,7 +169,7 @@ export function App() {
         <DocPrefs />
         <GameLayer />
         <CalibrateDialog />
-        <LessonList />
+        <LearnHub />
         <Welcome />
         <LessonHighlight />
       </div>

@@ -23,8 +23,9 @@ function save(k: string, v: unknown) {
 interface LearnState {
   /** A lesson is running (the workbench belongs to it). */
   active: boolean;
-  /** The lesson list is open. */
+  /** The Learn hub (lessons + challenges) is open. */
   listOpen: boolean;
+  tab: 'lessons' | 'challenges';
   /** First-visit welcome is showing. */
   welcome: boolean;
   lessonId: string | null;
@@ -41,7 +42,10 @@ interface LearnState {
   backup: Topology | null;
   collapsed: boolean;
 
-  openList: () => void;
+  openList: (tab?: 'lessons' | 'challenges') => void;
+  setTab: (tab: 'lessons' | 'challenges') => void;
+  /** Leave any lesson and open a challenge level's brief. */
+  pickLevel: (id: string) => void;
   closeList: () => void;
   start: (id: string) => void;
   restart: () => void;
@@ -57,6 +61,7 @@ interface LearnState {
 export const useLearn = create<LearnState>((set, get) => ({
   active: false,
   listOpen: false,
+  tab: 'lessons',
   welcome: false,
   lessonId: null,
   step: 0,
@@ -69,7 +74,15 @@ export const useLearn = create<LearnState>((set, get) => ({
   backup: null,
   collapsed: false,
 
-  openList: () => set({ listOpen: true, welcome: false }),
+  openList: (tab) => set({ listOpen: true, welcome: false, ...(tab ? { tab } : {}) }),
+  setTab: (tab) => set({ tab }),
+  pickLevel: (id) => {
+    if (get().active) get().exit(false); // put the learner's own workbench back first
+    set({ listOpen: false });
+    const g = useGame.getState();
+    if (g.mode !== 'challenge') g.enterChallenge();
+    useGame.getState().openLevel(id);
+  },
   closeList: () => set({ listOpen: false }),
   start: (id) => {
     const lesson = lessonById(id);

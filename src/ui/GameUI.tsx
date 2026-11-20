@@ -44,49 +44,38 @@ function goalLines(level: Level, lang: 'zh' | 'en') {
   return lines;
 }
 
-// ---------------------------------------------------------------- level select
-export function LevelSelect() {
+// ---------------------------------------------------------------- level grid (shown in the Learn hub)
+export function totalStars(progress: Record<string, { stars: number }>): number {
+  return Object.values(progress).reduce((s, p) => s + p.stars, 0);
+}
+
+export function LevelGrid({ onPick }: { onPick: (id: string) => void }) {
   const t = useT();
   const lang = useLang();
   const progress = useGame((g) => g.progress);
-  const openLevel = useGame((g) => g.openLevel);
-  const exit = useGame((g) => g.exitChallenge);
-  const total = Object.values(progress).reduce((s, p) => s + p.stars, 0);
   return (
-    <div className="gm-scrim">
-      <div className="gm gm--select" role="dialog" aria-modal="true" aria-labelledby="sel-h">
-        <header className="gm-head">
-          <div>
-            <h2 id="sel-h">{t('挑战模式', 'Challenge mode')}</h2>
-            <p>{t('守住 SLO，控制成本，在故障中活下来。每关最多 3 颗星。', 'Hold the SLO, keep costs down, survive the outages. Up to 3 stars per level.')}</p>
-          </div>
-          <div className="gm-total"><Stars n={Math.min(3, total)} size={16} /><span>{total} / {LEVELS.length * 3}</span></div>
-          <button type="button" className="btn btn--ghost" onClick={exit}>{t('返回沙盒', 'Back to sandbox')}</button>
-        </header>
-        <ol className="lv-grid">
-          {LEVELS.map((lv) => {
-            const unlocked = isUnlocked(lv.id, progress);
-            const p = progress[lv.id];
-            return (
-              <li key={lv.id}>
-                <button type="button" className={`lv${unlocked ? '' : ' is-locked'}${p?.stars ? ' is-done' : ''}`} disabled={!unlocked} onClick={() => { play('click'); openLevel(lv.id); }}>
-                  <span className="lv-num">{lv.num}</span>
-                  <span className="lv-title">{lv.title[lang]}</span>
-                  <span className="lv-diff" aria-label={t(`难度 ${lv.difficulty}`, `Difficulty ${lv.difficulty}`)}>
-                    {Array.from({ length: 5 }, (_, i) => <i key={i} className={i < lv.difficulty ? 'is-on' : ''} />)}
-                  </span>
-                  <span className="lv-story">{lv.story[lang]}</span>
-                  <span className="lv-foot">
-                    {unlocked ? <><Stars n={p?.stars ?? 0} size={16} />{p?.best ? <span className="lv-best">{t('最高', 'Best')} {p.best}</span> : null}</>
-                      : <span className="lv-lock"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><rect x="2.5" y="6" width="9" height="6.5" rx="1.5" fill="currentColor" /><path d="M4.5 6V4.5a2.5 2.5 0 0 1 5 0V6" fill="none" stroke="currentColor" strokeWidth="1.4" /></svg>{t('通过上一关解锁', 'Clear the previous level to unlock')}</span>}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-      </div>
-    </div>
+    <ol className="lv-grid">
+      {LEVELS.map((lv) => {
+        const unlocked = isUnlocked(lv.id, progress);
+        const p = progress[lv.id];
+        return (
+          <li key={lv.id}>
+            <button type="button" className={`lv${unlocked ? '' : ' is-locked'}${p?.stars ? ' is-done' : ''}`} disabled={!unlocked} onClick={() => { play('click'); onPick(lv.id); }}>
+              <span className="lv-num">{lv.num}</span>
+              <span className="lv-title">{lv.title[lang]}</span>
+              <span className="lv-diff" aria-label={t(`难度 ${lv.difficulty}`, `Difficulty ${lv.difficulty}`)}>
+                {Array.from({ length: 5 }, (_, i) => <i key={i} className={i < lv.difficulty ? 'is-on' : ''} />)}
+              </span>
+              <span className="lv-story">{lv.story[lang]}</span>
+              <span className="lv-foot">
+                {unlocked ? <><Stars n={p?.stars ?? 0} size={16} />{p?.best ? <span className="lv-best">{t('最高', 'Best')} {p.best}</span> : null}</>
+                  : <span className="lv-lock"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><rect x="2.5" y="6" width="9" height="6.5" rx="1.5" fill="currentColor" /><path d="M4.5 6V4.5a2.5 2.5 0 0 1 5 0V6" fill="none" stroke="currentColor" strokeWidth="1.4" /></svg>{t('通过上一关解锁', 'Clear the previous level to unlock')}</span>}
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -303,7 +292,6 @@ export function GameLayer() {
   if (mode !== 'challenge') return null;
   return (
     <>
-      {phase === 'select' && <LevelSelect />}
       {phase === 'brief' && <Brief />}
       {phase === 'over' && <Result />}
     </>

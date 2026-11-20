@@ -27,7 +27,6 @@ export function TopBar() {
   const lagging = running && achieved > 0 && achieved < speed * 0.8 && simTime > 3000;
   const mode = useGame((g) => g.mode);
   const phase = useGame((g) => g.phase);
-  const enterChallenge = useGame((g) => g.enterChallenge);
   const exitChallenge = useGame((g) => g.exitChallenge);
   const showSelect = useGame((g) => g.showSelect);
   const level = levelById(useGame((g) => g.levelId));
@@ -60,7 +59,7 @@ export function TopBar() {
         </div>
       ) : learning ? (
         <div className="mode-chip">
-          <button type="button" className="menu-btn" onClick={openLessons}>
+          <button type="button" className="menu-btn" onClick={() => openLessons('lessons')}>
             <span className="menu-k">{t('学习', 'Learn')}</span>
             <span className="menu-v">{lesson ? t(`第 ${lesson.num} 课`, `Lesson ${lesson.num}`) : t('课程', 'Lessons')}</span>
           </button>
@@ -74,10 +73,7 @@ export function TopBar() {
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 5.5 8 2.5l6.5 3L8 8.5z M4 7v3.5c0 1 1.8 2 4 2s4-1 4-2V7 M14.5 5.5v4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
             {t('学习', 'Learn')}
           </button>
-          <button type="button" className="btn btn--challenge" onClick={() => { play('click'); enterChallenge(); }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2h8v3a4 4 0 0 1-8 0V2Z M4 3H1.5v1.5A2.5 2.5 0 0 0 4 7 M12 3h2.5v1.5A2.5 2.5 0 0 1 12 7 M8 9v3 M5 14h6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            {t('挑战模式', 'Challenge')}
-          </button>
+
         </>
       )}
 

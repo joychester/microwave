@@ -3,6 +3,9 @@ import { LESSONS, PLANNED, lessonById } from '../learn/lessons';
 import { dyn } from '../learn/types';
 import type { Text } from '../engine/types';
 import { useStore } from './store';
+import { useGame } from './game';
+import { LEVELS } from '../game/levels';
+import { LevelGrid, Stars, totalStars } from './GameUI';
 import { lessonCtx, useLearn } from './learn';
 import { useLang, useT } from './i18n';
 import { play } from './sound';
@@ -23,57 +26,86 @@ function Prose({ text }: { text: string }) {
   );
 }
 
-// ---------------------------------------------------------------- lesson list
-export function LessonList() {
+// ---------------------------------------------------------------- Learn hub: lessons + challenges
+export function LearnHub() {
   const t = useT();
   const lang = useLang();
-  const open = useLearn((l) => l.listOpen);
+  const listOpen = useLearn((l) => l.listOpen);
+  const tab = useLearn((l) => l.tab);
+  const setTab = useLearn((l) => l.setTab);
   const close = useLearn((l) => l.closeList);
   const start = useLearn((l) => l.start);
+  const pickLevel = useLearn((l) => l.pickLevel);
   const completed = useLearn((l) => l.completed);
   const active = useLearn((l) => l.active);
   const current = useLearn((l) => l.lessonId);
-  if (!open) return null;
+  const mode = useGame((g) => g.mode);
+  const phase = useGame((g) => g.phase);
+  const progress = useGame((g) => g.progress);
+  const exitChallenge = useGame((g) => g.exitChallenge);
+  // the challenge's own "levels" step shows this hub too
+  const inSelect = mode === 'challenge' && phase === 'select';
+  useEffect(() => { if (inSelect) setTab('challenges'); }, [inSelect, setTab]);
+  if (!listOpen && !inSelect) return null;
+  const dismiss = () => { close(); if (inSelect) exitChallenge(); };
+  const done = LESSONS.filter((l) => completed[l.id]).length;
+  const stars = totalStars(progress);
   return (
-    <div className="gm-scrim" onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
+    <div className="gm-scrim" onClick={(e) => { if (e.target === e.currentTarget) dismiss(); }}>
       <div className="gm gm--learn" role="dialog" aria-modal="true" aria-labelledby="learn-h">
         <header className="gm-head">
           <div>
-            <h2 id="learn-h">{t('学习模式', 'Learn')}</h2>
-            <p>{t('一课一个概念，跟着步骤动手做。每课 5–10 分钟，建议按顺序学。', 'One idea per lesson, learned by doing. Each takes 5–10 minutes; going in order works best.')}</p>
+            <h2 id="learn-h">{t('学习', 'Learn')}</h2>
+            <p>{tab === 'lessons'
+              ? t('一课一个概念，跟着步骤动手做。每课 5–10 分钟，建议按顺序学。', 'One idea per lesson, learned by doing. Each takes 5–10 minutes; going in order works best.')
+              : t('没有提示，自己诊断：守住 SLO，控制成本，在故障中活下来。每关最多 3 颗星。', 'No hints: diagnose it yourself. Hold the SLO, keep costs down, survive the outages. Up to 3 stars per level.')}</p>
           </div>
-          <button type="button" className="btn btn--ghost" onClick={close}>{t('关闭', 'Close')}</button>
+          <button type="button" className="btn btn--ghost" onClick={dismiss}>{inSelect ? t('返回工作台', 'Back to the workbench') : t('关闭', 'Close')}</button>
         </header>
-        <ol className="ls-list">
-          {LESSONS.map((l) => {
-            const done = completed[l.id];
-            const here = active && current === l.id;
-            return (
-              <li key={l.id} className={`ls${done ? ' is-done' : ''}`}>
-                <span className="ls-num">{done ? '✓' : l.num}</span>
-                <div className="ls-main">
-                  <div className="ls-title">{l.title[lang]}</div>
-                  <p className="ls-sum">{l.summary[lang]}</p>
-                </div>
-                <span className="ls-min">{t(`约 ${l.minutes} 分钟`, `${l.minutes} min`)}</span>
-                <button type="button" className="btn btn--primary" onClick={() => { play('click'); start(l.id); }}>
-                  {here ? t('重新开始', 'Start over') : done ? t('再学一次', 'Do it again') : t('开始', 'Start')}
-                </button>
-              </li>
-            );
-          })}
-          {PLANNED.map((l) => (
-            <li key={l.id} className="ls is-soon">
-              <span className="ls-num">{l.num}</span>
-              <div className="ls-main">
-                <div className="ls-title">{l.title[lang]}</div>
-                <p className="ls-sum">{l.summary[lang]}</p>
-              </div>
-              <span className="ls-min">{t('即将推出', 'Coming soon')}</span>
-            </li>
-          ))}
-        </ol>
-        <p className="ls-note">{t('开始一课时，当前工作台会先保存起来；退出学习后原样恢复。', 'Starting a lesson saves your current workbench; it comes back when you leave.')}</p>
+        <div className="hub-tabs" role="tablist" aria-label={t('学习内容', 'Learning content')}>
+          <button type="button" role="tab" aria-selected={tab === 'lessons'} className={tab === 'lessons' ? 'is-on' : ''} onClick={() => setTab('lessons')}>
+            {t('课程', 'Lessons')}<span className="hub-count">{done} / {LESSONS.length + PLANNED.length}</span>
+          </button>
+          <button type="button" role="tab" aria-selected={tab === 'challenges'} className={tab === 'challenges' ? 'is-on' : ''} onClick={() => setTab('challenges')}>
+            {t('挑战', 'Challenges')}<span className="hub-count"><Stars n={Math.min(3, stars)} size={12} />{stars} / {LEVELS.length * 3}</span>
+          </button>
+        </div>
+        {tab === 'lessons' ? (
+          <>
+            <ol className="ls-list">
+              {LESSONS.map((l) => {
+                const isDone = completed[l.id];
+                const here = active && current === l.id;
+                return (
+                  <li key={l.id} className={`ls${isDone ? ' is-done' : ''}`}>
+                    <span className="ls-num">{isDone ? '✓' : l.num}</span>
+                    <div className="ls-main">
+                      <div className="ls-title">{l.title[lang]}</div>
+                      <p className="ls-sum">{l.summary[lang]}</p>
+                    </div>
+                    <span className="ls-min">{t(`约 ${l.minutes} 分钟`, `${l.minutes} min`)}</span>
+                    <button type="button" className="btn btn--primary" onClick={() => { play('click'); start(l.id); }}>
+                      {here ? t('重新开始', 'Start over') : isDone ? t('再学一次', 'Do it again') : t('开始', 'Start')}
+                    </button>
+                  </li>
+                );
+              })}
+              {PLANNED.map((l) => (
+                <li key={l.id} className="ls is-soon">
+                  <span className="ls-num">{l.num}</span>
+                  <div className="ls-main">
+                    <div className="ls-title">{l.title[lang]}</div>
+                    <p className="ls-sum">{l.summary[lang]}</p>
+                  </div>
+                  <span className="ls-min">{t('即将推出', 'Coming soon')}</span>
+                </li>
+              ))}
+            </ol>
+            <p className="ls-note">{t('开始一课或一关时，当前工作台会先保存起来；退出后原样恢复。', 'Starting a lesson or a level saves your current workbench; it comes back when you leave.')}</p>
+          </>
+        ) : (
+          <LevelGrid onPick={pickLevel} />
+        )}
       </div>
     </div>
   );
@@ -167,7 +199,10 @@ export function LessonGuide() {
         {last ? (
           <>
             <button type="button" className="btn btn--primary" onClick={() => l.exit(true)}>{t('用这个拓扑继续自由实验', 'Keep experimenting here')}</button>
-            <button type="button" className="btn btn--ghost" onClick={() => l.openList()}>{t('课程列表', 'Lessons')}</button>
+            {lesson.challenge
+              ? <button type="button" className="btn btn--ghost" onClick={() => l.pickLevel(lesson.challenge!)}>{t('去挑战推荐关卡', 'Try the matching level')}</button>
+              : <button type="button" className="btn btn--ghost" onClick={() => l.openList('challenges')}>{t('看看挑战关卡', 'See the challenges')}</button>}
+            <button type="button" className="btn btn--ghost" onClick={() => l.openList('lessons')}>{t('课程列表', 'Lessons')}</button>
             <button type="button" className="btn btn--ghost" onClick={() => l.exit(false)}>{t('退出并恢复工作台', 'Leave and restore my workbench')}</button>
           </>
         ) : step.kind === 'read' || (step.kind === 'do' && l.stepDone) ? (
