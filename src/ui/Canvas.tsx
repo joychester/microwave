@@ -168,22 +168,25 @@ const SimNode = memo(function SimNode({ id, data, selected }: NodeProps<SimNodeT
 });
 
 // ---------------------------------------------------------------- edge
-// Edge width follows traffic volume on a log scale, relative to the run's peak edge rate.
-// Log, because one diagram mixes thousands of calls/s with tens; the exact rate stays on the label.
-const W_MIN = 1.5, W_MAX = 6.5, W_BASE = 5, PEAK_FLOOR = 50;
+// Edge width follows traffic volume: its share of the busiest edge seen in this run, raised to 0.65.
+// A plain ratio would leave tens of calls/s as hairlines next to thousands; a log scale (the
+// earlier choice) flattened everything above a few hundred calls/s to nearly the same width. The
+// exact rate stays on the label.
+const W_MIN = 1.2, W_MAX = 10, W_EXP = 0.65, PEAK_FLOOR = 50;
 function flowWidth(rate: number, peak: number): number {
-  if (rate <= 0.05) return 1.4;
+  if (rate <= 0.05) return 1.2;
   const ref = Math.max(peak, PEAK_FLOOR);
-  const f = Math.log10(1 + rate / W_BASE) / Math.log10(1 + ref / W_BASE);
-  return Math.min(W_MAX, W_MIN + (W_MAX - W_MIN) * Math.min(1, f));
+  return W_MIN + (W_MAX - W_MIN) * Math.pow(Math.min(1, rate / ref), W_EXP);
 }
-// Arrowheads come in four sizes so they stay in proportion to the line. The line stops short of
+// Arrowheads come in sizes that stay in proportion to the line. The line stops short of
 // the target by `inset` and the arrow tip reaches it, so a thick line never pokes out past the tip.
 const ARROWS = [
   { upTo: 2.6, size: 12 },
-  { upTo: 3.9, size: 15 },
-  { upTo: 5.2, size: 18 },
-  { upTo: Infinity, size: 22 },
+  { upTo: 4, size: 15 },
+  { upTo: 5.6, size: 18 },
+  { upTo: 7.2, size: 22 },
+  { upTo: 8.8, size: 26 },
+  { upTo: Infinity, size: 29 },
 ];
 const ARROW_INSET = 0.55;
 function arrowFor(width: number) {
