@@ -72,9 +72,15 @@ const SimNode = memo(function SimNode({ id, data, selected }: NodeProps<SimNodeT
   const hp = cfg.type === 'client' ? sysAvail : s && s.ok + s.err > 0 ? s.ok / (s.ok + s.err) : null;
 
   const pct = useStore((st) => sloPct(st.topology));
+  // Instance count edited while paused: the last live sample still has the old count until the
+  // simulation runs again, so show the configured count (not with autoscaling, where the live
+  // count legitimately differs from the configured one).
+  const cfgInst = Number(cfg.params.instances);
+  const liveTotal = s ? s.instances + (s.extra.starting ?? 0) + (s.extra.down ?? 0) : null;
+  const pendingInst = (cfg.type === 'service' || cfg.type === 'gateway') && !!s && !running && !cfg.params.asEnabled && liveTotal !== cfgInst;
   let instances = '';
   if (cfg.type === 'service' || cfg.type === 'gateway') {
-    const n = s?.instances ?? Number(cfg.params.instances);
+    const n = pendingInst ? cfgInst : s?.instances ?? cfgInst;
     instances = t(`${n} 实例`, `${n} instance${n === 1 ? '' : 's'}`);
   } else if (cfg.type === 'cache') instances = t(`${cfg.params.shards} 分片`, `${cfg.params.shards} shards`);
   else if (cfg.type === 'database') instances = Number(cfg.params.replicas) > 0 ? t(`主库 + ${cfg.params.replicas} 副本`, `primary + ${cfg.params.replicas} replicas`) : t('单主库', 'single primary');
@@ -116,13 +122,13 @@ const SimNode = memo(function SimNode({ id, data, selected }: NodeProps<SimNodeT
   // instance pods (services / gateways): ready, starting, down
   let pods: ('up' | 'start' | 'down')[] = [];
   if (cfg.type === 'service' || cfg.type === 'gateway') {
-    const ready = s ? s.instances : Number(cfg.params.instances);
-    const starting = s?.extra.starting ?? 0;
-    const down = s?.extra.down ?? 0;
+    const ready = pendingInst || !s ? cfgInst : s.instances;
+    const starting = pendingInst ? 0 : s?.extra.starting ?? 0;
+    const down = pendingInst ? 0 : s?.extra.down ?? 0;
     pods = [...Array(ready).fill('up'), ...Array(starting).fill('start'), ...Array(down).fill('down')];
   }
   const MAX_PODS = 14;
-  const replicas = cfg.type === 'service' ? Math.max(1, s?.instances ?? Number(cfg.params.instances)) : 1;
+  const replicas = cfg.type === 'service' ? Math.max(1, pendingInst ? cfgInst : s?.instances ?? cfgInst) : 1;
 
   return (
     <NodeShape type={cfg.type} replicas={replicas} partitions={Number(cfg.params.partitions ?? 12)} className={`sn sn-h--${health}${selected ? ' is-sel' : ''}${running && health === 'crit' ? ' is-shaking' : ''}`}>
