@@ -30,6 +30,9 @@ export interface LessonCtx {
   latest: Snapshot | null;
   dockOpen: boolean;
   dockTab: string;
+  /** Simulation speed (1, 2, 5, …) and run length in sim seconds, as set in the top bar. */
+  speed: number;
+  duration: number;
   /** Measurements recorded by earlier steps, by key. */
   meas: Record<string, Measure>;
   /** Chosen option index of each prediction step, by step id. */

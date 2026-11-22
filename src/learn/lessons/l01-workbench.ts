@@ -31,8 +31,9 @@ export const lesson01: Lesson = {
   num: 1,
   title: L('认识工作台', 'Meet the workbench'),
   summary: L('搭一个最小系统，跑起来，读懂 QPS、可用性、平均延迟、p95 和 CPU。', 'Build the smallest system, run it, and read throughput, availability, average and p95 latency, and CPU.'),
-  minutes: 6,
-  speed: 5,
+  minutes: 7,
+  // starts at 1×: one of the first steps is switching to 5× yourself
+  speed: 1,
   make: (lang) => blankTopology(lang),
   steps: [
     {
@@ -48,6 +49,37 @@ export const lesson01: Lesson = {
       feedback: L(
         '这条线表示"用户流量调用微服务"，箭头指向被调用的一方。新加的微服务用默认参数：3 个实例，每个 2 核，处理一个请求的时间中位数 10ms，最慢的 1% 约 60ms。',
         'The line means "traffic calls the service"; the arrow points at the one being called. The new service starts with defaults: 3 instances with 2 cores each, a median processing time of 10ms, and the slowest 1% around 60ms.',
+      ),
+    },
+    {
+      id: 'duration',
+      kind: 'do',
+      title: L('设置运行时长', 'Set the run length'),
+      body: L(
+        '运行之前，先认识顶栏的两个设置。\n\n顶栏中间的时钟显示"已运行 / 运行时长"。运行时长决定一次测试跑多久（按仿真时间算）：时间一到会自动停止，并在底部生成一份运行报告。课程开始时默认是 30 分钟。点一下时钟，把运行时长改成 5 分钟，用来观察结果已经足够。\n\n如果课程做到一半，运行到时自动停了，再点"运行"就会开始下一次运行，课程可以接着做。',
+        'Before running, get to know two settings in the top bar.\n\nThe clock in the middle shows "elapsed / run length". The run length is how long one test runs, in simulated time: when it is up the run stops on its own and writes a run report at the bottom. Lessons start with 30 minutes. Click the clock and set the run length to 5 minutes, which is plenty to see the results.\n\nIf a run stops on time halfway through the lesson, press Run again: a new run starts and the lesson carries on.',
+      ),
+      // the clock's menu, once it is open; otherwise the clock itself
+      highlight: (c) => (c.duration === 300 ? null : typeof document !== 'undefined' && document.querySelector('[data-learn="dur-300"]') ? '[data-learn="dur-300"]' : '[data-learn="clock"]'),
+      check: (c) => c.duration === 300,
+      feedback: L(
+        '运行时长改成 5 分钟了，时钟会显示"已运行 / 5:00"。',
+        'The run length is now 5 minutes; the clock shows "elapsed / 5:00".',
+      ),
+    },
+    {
+      id: 'speed',
+      kind: 'do',
+      title: L('设置仿真速度', 'Set the simulation speed'),
+      body: L(
+        '时钟左边的 1× 2× 5× 10× 20× 是仿真速度：真实的 1 秒里，仿真走几秒。1× 和真实时间一样快；5× 时，5 分钟的测试真实只要 1 分钟。\n\n速度只影响你要等多久，不影响结果：同样的配置，用 1× 和 5× 跑出来的指标基本一样。速度太快时浏览器可能跟不上，时钟旁会显示实际达到的倍数。\n\n现在是 1×。把它改成 5×，更快看到运行状态和结果。',
+        'The 1× 2× 5× 10× 20× buttons left of the clock set the simulation speed: how many simulated seconds pass in one real second. 1× runs in real time; at 5×, a 5-minute test takes 1 real minute.\n\nSpeed only changes how long you wait, not the results: the same setup gives essentially the same numbers at 1× and at 5×. If the speed is too high for the browser, the clock shows the speed it actually reached.\n\nIt is at 1× now. Switch to 5× to see the run and its results sooner.',
+      ),
+      highlight: (c) => (c.speed === 5 ? null : '[data-learn="speed-5"]'),
+      check: (c) => c.speed === 5,
+      feedback: L(
+        '5×：真实 1 秒，仿真走 5 秒。后面跑 20 秒的仿真，大约只要 4 秒。',
+        '5×: 5 simulated seconds per real second. The 20 simulated seconds in the next steps take about 4 real seconds.',
       ),
     },
     {
@@ -117,10 +149,11 @@ export const lesson01: Lesson = {
       kind: 'do',
       title: L('改一个参数', 'Change one parameter'),
       body: L(
-        '在检查器的"容量"分组里，把"实例数"改成 1。保持运行，再观察 20 秒。',
-        'In the Capacity group of the inspector, set Instances to 1. Keep it running and watch for another 20 seconds.',
+        '在检查器的"容量"分组里，把"实例数"改成 1。保持运行，再观察 20 秒（如果运行已经到时停了，再点一次"运行"）。',
+        'In the Capacity group of the inspector, set Instances to 1. Keep it running and watch for another 20 seconds (if the run has reached its length and stopped, press Run again).',
       ),
-      highlight: (c) => (instances(c) === 1 ? null : '.inspector [data-param="instances"]'),
+      // after the instances, the Run button in case the run has reached its length and stopped
+      highlight: (c) => (instances(c) !== 1 ? '.inspector [data-param="instances"]' : c.running ? null : '[data-learn="run"]'),
       check: (c) => instances(c) === 1,
       hold: 20,
       settle: 5,
@@ -143,7 +176,7 @@ export const lesson01: Lesson = {
         '先把实例数改回 3。然后在检查器底部的"故障注入"里找到"变慢"，把倍数改成 3，点"注入"。保持运行，观察 15 秒。',
         'First set Instances back to 3. Then, under Fault injection at the bottom of the inspector, find Slowdown, set the multiplier to 3 and press Inject. Keep it running and watch for 15 seconds.',
       ),
-      highlight: (c) => (instances(c) < 3 ? '.inspector [data-param="instances"]' : slowActive(c) ? null : '.inspector [data-fault="slow"]'),
+      highlight: (c) => (instances(c) < 3 ? '.inspector [data-param="instances"]' : !slowActive(c) ? '.inspector [data-fault="slow"]' : c.running ? null : '[data-learn="run"]'),
       check: (c) => instances(c) >= 3 && slowActive(c),
       hold: 15,
       settle: 3,

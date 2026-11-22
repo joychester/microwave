@@ -93,7 +93,7 @@ export function TopBar() {
         {!challenge && <button type="button" className="btn btn--ghost" onClick={reset} title={t('清空指标，从 0 秒重新开始', 'Clear metrics and restart from 0 s')}>{t('重置', 'Reset')}</button>}
         <div className="seg seg--speed" role="radiogroup" aria-label={t('仿真速度', 'Simulation speed')}>
           {SPEEDS.map((v) => (
-            <button key={v} type="button" role="radio" aria-checked={speed === v} className={speed === v ? 'is-on' : ''} onClick={() => setSpeed(v)}>{v}×</button>
+            <button key={v} type="button" data-learn={`speed-${v}`} role="radio" aria-checked={speed === v} className={speed === v ? 'is-on' : ''} onClick={() => setSpeed(v)}>{v}×</button>
           ))}
         </div>
         {challenge ? (
@@ -130,7 +130,7 @@ function RunClock({ lagging, achieved }: { lagging: boolean; achieved: number })
   const label = (s: number) => t(`${s / 60} 分钟`, `${s / 60} min`);
   return (
     <div className="menu" {...away}>
-      <button type="button" className="clock clock--btn" aria-expanded={open} aria-label={t('运行时长', 'Run length')} onClick={() => setOpen(!open)}>
+      <button type="button" data-learn="clock" className="clock clock--btn" aria-expanded={open} aria-label={t('运行时长', 'Run length')} onClick={() => setOpen(!open)}>
         <span className="clock-t">{fmtClock(elapsed * 1000)}<small> / {fmtClock(duration * 1000)}</small></span>
         <span className="clock-prog" aria-hidden="true"><i style={{ width: `${Math.min(100, (elapsed / duration) * 100)}%` }} /></span>
         {lagging && <span className="clock-lag">{t('实际', 'actual')} {achieved.toFixed(1)}×</span>}
@@ -139,7 +139,7 @@ function RunClock({ lagging, achieved }: { lagging: boolean; achieved: number })
         <div className="menu-pop" role="menu">
           <p className="menu-note">{t('运行时长（仿真时间），到点自动停止并生成报告。最长 30 分钟。', 'Run length in simulated time. The run stops on time and writes a report. Up to 30 minutes.')}</p>
           {DURATIONS.map((d) => (
-            <button key={d} type="button" role="menuitemradio" aria-checked={d === duration} className={`menu-item${d === duration ? ' is-on' : ''}`} onClick={() => { setDuration(d); setOpen(false); }}>
+            <button key={d} type="button" data-learn={`dur-${d}`} role="menuitemradio" aria-checked={d === duration} className={`menu-item${d === duration ? ' is-on' : ''}`} onClick={() => { setDuration(d); setOpen(false); }}>
               {label(d)}
             </button>
           ))}
