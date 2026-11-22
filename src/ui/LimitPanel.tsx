@@ -109,7 +109,7 @@ function LimitDetail({ r, onClose }: { r: LimitResult; onClose: () => void }) {
   const lang = useLang();
   const showToast = useStore((s) => s.showToast);
   const md = () => [
-    `# SimBench ${t('上限测试', 'limit test')} #${r.id}`, '',
+    `# Microwave ${t('上限测试', 'limit test')} #${r.id}`, '',
     `- ${t('拓扑', 'Topology')}: ${r.topology}`,
     `- ${t('判定标准', 'Criterion')}: ${r.criterion === 'util' ? t(`所有组件利用率 ≤ ${fmtPct(r.threshold)}`, `every component at or below ${fmtPct(r.threshold)} utilization`) : t('守住 SLO', 'hold the SLO')}`,
     `- ${t('结果', 'Result')}: ${headline(r, t)}`,

@@ -86,7 +86,7 @@ export function ReportPanel() {
 
   const copy = async () => {
     const lines = [
-      `# SimBench ${t('报告', 'report')} ${r.name}`,
+      `# Microwave ${t('报告', 'report')} ${r.name}`,
       '',
       `- ${t('拓扑', 'Topology')}: ${r.topology}`,
       `- ${t('时长', 'Duration')}: ${fmtClock(r.seconds * 1000)}`,
@@ -133,7 +133,7 @@ export function ReportPanel() {
     const xt = buildTiles(r, undefined);
     const rel = (abs: number) => fmtClock(Math.max(0, abs - r.t0) * 1000);
     return [
-      `# SimBench ${t('报告', 'report')} ${r.name}`, '', ...runMeta(r), '',
+      `# Microwave ${t('报告', 'report')} ${r.name}`, '', ...runMeta(r), '',
       `## ${t('结果', 'Results')}`, '',
       ...xt.map((x) => `- **${x.k}**: ${x.v}${x.note ? ` (${x.note})` : ''}`), '',
       `## ${t('组件', 'Components')}`, '',
@@ -157,7 +157,7 @@ export function ReportPanel() {
     };
     const pn = new Map(nodeList(p));
     return [
-      `# SimBench ${t('对比报告', 'comparison')}: ${p.name} → ${r.name}`, '',
+      `# Microwave ${t('对比报告', 'comparison')}: ${p.name} → ${r.name}`, '',
       `### ${p.name}`, ...runMeta(p), '', `### ${r.name}`, ...runMeta(r), '',
       `## ${t('配置变化', 'What changed')}`, '',
       ...(changes.length ? changes.map((c) => `- ${c.where}: ${changeText(c)}`) : [`- ${t('两轮配置相同，结果差异来自随机波动', 'Same configuration; differences come from random variation')}`]), '',

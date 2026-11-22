@@ -15,6 +15,7 @@ import { levelById, useGame } from './game';
 import { Countdown, GameHud, GameLayer } from './GameUI';
 import { CalibrateDialog } from './CalibrateDialog';
 import { LearnHub, LessonGuide, LessonHighlight, Welcome } from './LearnUI';
+import { SettingsDialog } from './ObsPanel';
 
 const PALETTE: NodeType[] = ['client', 'gateway', 'lb', 'service', 'cache', 'database', 'queue', 'external'];
 const SHORT: Record<NodeType, { zh: string; en: string }> = {
@@ -170,6 +171,7 @@ export function App() {
         <GameLayer />
         <CalibrateDialog />
         <LearnHub />
+        <SettingsDialog />
         <Welcome />
         <LessonHighlight />
       </div>

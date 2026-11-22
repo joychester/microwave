@@ -67,8 +67,11 @@ interface Acc extends Omit<RunReport, 'id' | 'name' | 'avail' | 'p99Avg' | 'latA
 }
 
 /** Everything that affects a run, without canvas positions (dragging a node is not an edit). */
+/** Node params that only say where to read real metrics (obsService, obsConn, obsMetrics); they don't change the model. */
+const modelParams = (p: Record<string, unknown>) => Object.fromEntries(Object.entries(p).filter(([k]) => !k.startsWith('obs')));
+
 function configSig(t: Topology): string {
-  return JSON.stringify([t.nodes.map((n) => [n.id, n.type, n.name, n.params]), t.edges]);
+  return JSON.stringify([t.nodes.map((n) => [n.id, n.type, n.name, modelParams(n.params)]), t.edges]);
 }
 
 function newAcc(topo: Topology, duration: number, lang: 'zh' | 'en', t0: number): Acc {

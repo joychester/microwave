@@ -1,6 +1,6 @@
 // Calibrate the current topology from production metrics (CSV): paste or load a file, preview what
 // would change, apply, and see a verification run of simulated vs measured values.
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CAL_COLUMNS, calibrate, parseCalibrationCsv, templateCsv, verifyCalibration,
   type CalibrationResult, type VerifyResult,
@@ -25,8 +25,10 @@ function Dialog({ t }: { t: ReturnType<typeof useT> }) {
   const applyCalibrated = useStore((s) => s.applyCalibrated);
   const undoCalibration = useStore((s) => s.undoCalibration);
   const showToast = useStore((s) => s.showToast);
-  const [text, setText] = useState('');
-  const [source, setSource] = useState('CSV');
+  // opened with a prepared CSV (from fetched real metrics): start from it
+  const [preset] = useState(() => useStore.getState().calPreset);
+  const [text, setText] = useState(preset?.text ?? '');
+  const [source, setSource] = useState(preset?.source ?? 'CSV');
   const [overhead, setOverhead] = useState(0);
   const [step, setStep] = useState<Step>('input');
   const [result, setResult] = useState<CalibrationResult | null>(null);
@@ -43,6 +45,8 @@ function Dialog({ t }: { t: ReturnType<typeof useT> }) {
     setResult(calibrate(topology, parsed.rows, { cpuOverhead: overhead / 100, source }));
     setStep('preview');
   };
+  // a prepared CSV goes straight to the preview of what would change
+  useEffect(() => { if (preset) preview(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const apply = () => {
     if (!result) return;
@@ -86,8 +90,8 @@ function Dialog({ t }: { t: ReturnType<typeof useT> }) {
           <div className="cal-body">
             <p className="cal-lead">
               {t(
-                '填入一个典型高峰小时的指标，每个组件一行，按名字对应画布上的节点。SimBench 会反推处理时间和 CPU 占比，让仿真的“今天”对上生产基线。空着的格子保留当前值。',
-                'Enter metrics from a typical peak hour, one row per component, matched to canvas nodes by name. SimBench backsolves processing times and CPU shares so the simulated “today” matches the production baseline. Blank cells keep the current value.',
+                '填入一个典型高峰小时的指标，每个组件一行，按名字对应画布上的节点。Microwave 会反推处理时间和 CPU 占比，让仿真的“今天”对上生产基线。空着的格子保留当前值。',
+                'Enter metrics from a typical peak hour, one row per component, matched to canvas nodes by name. Microwave backsolves processing times and CPU shares so the simulated “today” matches the production baseline. Blank cells keep the current value.',
               )}
             </p>
             <div className="cal-actions">

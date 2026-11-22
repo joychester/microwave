@@ -122,7 +122,7 @@ export function Welcome() {
   return (
     <div className="gm-scrim">
       <div className="gm gm--welcome" role="dialog" aria-modal="true" aria-labelledby="wel-h">
-        <h2 id="wel-h">{t('欢迎使用 SimBench', 'Welcome to SimBench')}</h2>
+        <h2 id="wel-h">{t('欢迎使用 Microwave', 'Welcome to Microwave')}</h2>
         <p>{t('在这里搭建微服务系统，加流量、注入故障，看它在哪里、怎么撑不住。', 'Build a microservice system, add traffic, inject faults, and see where and how it gives way.')}</p>
         <p>{t('第一次用的话，建议从第 1 课开始：约 6 分钟，边做边学会这个工具。', 'If this is your first time, start with lesson 1: about 6 minutes, and you learn the tool as you go.')}</p>
         <div className="wel-actions">

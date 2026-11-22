@@ -1,8 +1,10 @@
-# SimBench: a microservice performance simulation workbench
+# Microwave: a microservice performance simulation workbench
+
+> Formerly SimBench. The repository is still named `perf_sim_workbench`.
 
 Build a microservice topology by drag and drop, tune capacity, timeouts, retries and circuit breakers, inject faults, and watch bottlenecks, SLO impact and cascading failures in real time. An analytical model alongside the simulation gives steady-state capacity estimates.
 
-![SimBench during a cache stampede: Redis is flushed, origin traffic floods Postgres, and failures spread upstream to the Catalog service and the gateway](docs/images/hero-en.png)
+![Microwave during a cache stampede: Redis is flushed, origin traffic floods Postgres, and failures spread upstream to the Catalog service and the gateway](docs/images/hero-en.png)
 
 *The Cache stampede scenario: Redis is flushed, misses flood Postgres, and failures climb upstream. Red cards are failing components; edge width shows traffic volume.*
 
@@ -23,11 +25,13 @@ Select any traffic source and pick how traffic arrives in the **Traffic model** 
 
 Everything can be changed while the simulation runs; a red line on the curve preview marks the current time. Each traffic source has its own model, and their traffic adds up wherever they share components (see the **Multiple traffic sources** preset).
 
-Click the clock in the top bar to pick a run length (1, 2, 5, 10 or 30 minutes of simulated time). The run stops on its own, and the **Report** tab shows availability, average latency, peak latency at the SLO percentile, time within SLO, the knee (the incoming rate at which the SLO keeps breaking), the first component to saturate, peak utilization per component, failure causes and cost. Reports can be copied as Markdown.
+Click the clock in the top bar to pick a run length (1, 2, 5, 10 or 30 minutes of simulated time). The run stops on its own, and the **Report** tab shows availability, average latency, latency at the SLO percentile over the whole run (plus the worst single second), time within SLO, the knee (the incoming rate at which the SLO keeps breaking), the first component to saturate, peak utilization per component, failure causes and cost. Reports can be copied as Markdown.
 
 **Comparing runs.** Each report is compared with the previous run of the same topology by default; **Compare with** picks any other run of that topology (the last 10 runs are kept). A **What changed** box lists every configuration difference between the two runs: components and calls added or removed, and each parameter or traffic model that changed, with the old value struck through and the new one highlighted. If parameters were edited while a run was going, the report says so, since its results mix both settings.
 
 **Exporting.** **Export** in the report bar downloads three kinds of file: this run alone as Markdown (no comparison), this run's raw data as JSON (every metric, per-component statistics and the full configuration it ran with), and a comparison report as Markdown (both runs side by side, what changed, and better/worse for each metric).
+
+**Editing on the card.** While the simulation isn't running (before the first run, or paused), double-click a component's name to rename it (Enter saves, Esc cancels), and hover a card for a −/+ stepper on the parameter changed most often: rate for a traffic source with a constant model (Shift steps by 100), instances for services and gateways, read replicas for databases, consumers for queues, hit ratio (or shards) for caches, and quota for third-party APIs. Everything else, and any change during a run, goes through the inspector on the right. Components a challenge level locks can't be edited on the card either.
 
 **Latency SLO percentile.** The latency SLO is set on the traffic source and measured at **p95** by default; switch it to **p99** under the traffic source's SLO settings. The top bar, node cards, charts, SLO check and run reports all follow that choice. Average latency is shown alongside it in the top bar, the inspector, the latency charts and the run report. Challenge mode always uses p99, so level scores stay comparable.
 
@@ -110,6 +114,28 @@ How the backsolve works:
 Limits: a service with several endpoints gets one blended processing time, so the baseline matches but a change in endpoint mix may not. One time window cannot pin down a database's non-linear contention (USL α, β); those keep their template values.
 
 `npx tsx scripts/check-calibration.ts` runs a round trip: it hides changed parameters in a "production" copy of the reference topology, measures it by simulation, calibrates the untouched template, and checks that the simulator reproduces the measurements and that the hidden values come back.
+
+## Comparing with real metrics (preview)
+
+> **Preview.** This feature is usable now so you can try it and wire it to your stack, and it is marked *Preview* in the app. It will be standardized and extended later; the settings format and the `/obs` interface may change.
+
+Fetch a service's real traffic, average latency, P90 latency and CPU utilization from your monitoring stack and see them next to the simulation's numbers. Three kinds of source are supported:
+
+- **Grafana MCP**: calls the `query_prometheus` tool of the Grafana MCP server ([mcp-grafana](https://github.com/grafana/mcp-grafana)) over streamable HTTP.
+- **Grafana**: queries through Grafana's datasource proxy.
+- **Prometheus**: queries Prometheus directly.
+
+**1. Server side.** Copy `.env.example` to `.env.local` (git-ignored; the older `SIMBENCH_` prefix also works) and set the address, plus a token where needed, for each kind you use. Then run with `npm run dev` or `npm run preview`: the browser only calls `/obs/...`, and the dev/preview server forwards those requests and adds the token, so tokens never reach the browser. The single-file build opened from disk has no server, so this feature needs dev or preview. To run the Grafana MCP server in HTTP mode, for example: `docker run --rm -p 8000:8000 -e GRAFANA_URL=... -e GRAFANA_SERVICE_ACCOUNT_TOKEN=... mcp/grafana -t streamable-http` (older versions name the token `GRAFANA_API_KEY`) and set `MICROWAVE_MCP_URL=http://localhost:8000/mcp`. A read-only service account with `datasources:query` is enough.
+
+**2. Settings.** Open **Settings** (the gear in the top bar) and add one or more **performance-data sources**. Each has a type, a Prometheus datasource UID (Grafana and MCP), a window (1, 5 or 15 minutes) and four PromQL templates. `{service}` and `{window}` are filled in at query time. Presets cover OpenTelemetry (`http_server_request_duration_seconds`) and Spring Boot / Micrometer (`http_server_requests_seconds`); edit them to match your metric names. **Test connection** runs `vector(1)`.
+
+**3. Per service.** In the inspector's **Real metrics** section, pick a source and the service label (for example `order-service`); the pipette on the card does the same. A component whose name already looks like a label uses it automatically. **Fetch real metrics** fills a table of real vs simulated values with the difference. Simulated numbers are over the last 5 seconds; a note appears when the two traffic levels differ by more than 20%, since latency and CPU aren't comparable then.
+
+**From the card.** The pipette at the bottom right of a service or gateway card opens the same setup in place: pick the source, the service label and which of the four metrics to fetch, press **Fetch**, and the comparison appears right there. It works while the simulation runs, since reading real metrics changes nothing in the model; a green dot on the pipette means the component has fetched data.
+
+**From real metrics to the model.** Under the comparison, **Set traffic to …** scales the traffic source so this component gets its real request rate (computed with the capacity analysis, so no run is needed), and **Calibrate from real metrics…** opens the calibration preview with a CSV built from every component fetched so far: measured traffic, average latency and CPU, plus pods, cores and threads from the canvas, and a traffic-source rate scaled from the measured component nearest the entry. Both change the model, so they're available while the simulation isn't running.
+
+**One click for everything.** Once a source exists, **Fetch real metrics** in the top bar fetches every service and gateway that has a label, and reports how many succeeded.
 
 ## Finding the limit
 

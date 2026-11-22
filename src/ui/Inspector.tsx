@@ -13,6 +13,8 @@ import { cacheShape, cheHitRatio, topKeyShare } from '../engine/cachemodel';
 import { levelById, useGame } from './game';
 import { isParamLocked } from '../game/levels';
 import { TrafficEditor } from './TrafficEditor';
+import { PreviewBadge, RealMetrics } from './ObsPanel';
+import { useObs } from './obs';
 
 function useLevel() {
   const mode = useGame((g) => g.mode);
@@ -79,6 +81,7 @@ function NodeInspector({ node }: { node: NodeCfg }) {
   const live = windowNode(history, node.id, 5);
   const level = useLevel();
   const nodeLocked = !!level?.lockedNodes.includes(node.id);
+  const hasObs = useObs((o) => o.conns.length > 0);
 
   const recent = history.slice(-120);
   const x = useMemo(() => recent.map((s) => s.t), [recent]);
@@ -117,6 +120,12 @@ function NodeInspector({ node }: { node: NodeCfg }) {
           <TimeChart compact title={node.type === 'queue' ? t('积压', 'Lag') : t('每秒请求', 'Requests/s')} x={x} series={rateSeries} unit={node.type === 'queue' ? '' : '/s'} height={92} />
           <TimeChart compact title={node.type === 'queue' ? t('消息延迟（每秒）', 'Message latency (per second)') : t('延迟（每秒）', 'Latency (per second)')} x={x} series={latSeries} unit="ms" height={92} />
         </div>
+      )}
+
+      {(node.type === 'service' || node.type === 'gateway') && !level && (
+        <Section title={t('真实指标', 'Real metrics')} defaultOpen={hasObs} aside={<PreviewBadge />}>
+          <RealMetrics node={node} />
+        </Section>
       )}
 
       {node.type === 'client' && (

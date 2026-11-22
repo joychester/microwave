@@ -1,5 +1,5 @@
 {
-  "name": "simbench",
+  "name": "microwave",
   "version": "1.0.0",
   "description": "Microservice performance simulation workbench: bottlenecks, SLO impact, cascading failure and capacity planning",
   "main": "index.js",

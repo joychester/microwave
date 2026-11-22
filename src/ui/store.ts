@@ -89,7 +89,9 @@ interface State {
   calOpen: boolean;
   /** Topology before the last calibration was applied, for undo. Cleared when another topology loads. */
   calBackup: Topology | null;
-  setCalOpen: (open: boolean) => void;
+  setCalOpen: (open: boolean, preset?: { text: string; source: string }) => void;
+  /** CSV to open the calibration dialog with (e.g. built from fetched real metrics). */
+  calPreset: { text: string; source: string } | null;
   applyCalibrated: (t: Topology) => void;
   undoCalibration: () => void;
 
@@ -135,7 +137,7 @@ function useMainThread() {
   if (mainHost) return;
   try { worker?.terminate(); } catch { /* ignore */ }
   worker = null;
-  console.info('[simbench] Web Worker unavailable, running the simulator on the main thread');
+  console.info('[microwave] Web Worker unavailable, running the simulator on the main thread');
   mainHost = createHost((m) => onHostMessage({ data: m } as MessageEvent), 40_000);
   for (const m of sent.splice(0)) mainHost(m);
 }
@@ -177,7 +179,8 @@ export const useStore = create<State>((set, get) => ({
   edgePeak: 0,
   calOpen: false,
   calBackup: null,
-  setCalOpen: (open) => set({ calOpen: open }),
+  calPreset: null,
+  setCalOpen: (open, preset) => set({ calOpen: open, calPreset: open ? preset ?? null : null }),
   applyCalibrated: (t) => {
     const prev = get().topology;
     get().setTopology(t, { reset: true });

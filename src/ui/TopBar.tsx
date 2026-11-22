@@ -7,6 +7,8 @@ import { useLang, useT } from './i18n';
 import { fmtAvail, fmtClock, fmtLatency, fmtRate, sloPct, windowSys } from './format';
 import { fmtCost } from '../engine/cost';
 import { useLearn } from './learn';
+import { useObs } from './obs';
+import { FetchAllButton } from './ObsPanel';
 import { lessonById } from '../learn/lessons';
 import { levelById, useGame } from './game';
 import { play } from './sound';
@@ -40,11 +42,14 @@ export function TopBar() {
   return (
     <header className="top">
       <div className="brand">
-        <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
-          <path d="M2 18h5l3-10 4 14 3-9 2 5h5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <svg className="brand-logo" width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+          <rect x="2" y="5" width="22" height="16" rx="2.5" fill="none" stroke="currentColor" strokeWidth="2" />
+          <path d="M5.5 13c1.2-2.6 2.4-2.6 3.6 0s2.4 2.6 3.6 0 2.4-2.6 3.6 0" fill="none" stroke="var(--select)" strokeWidth="2" strokeLinecap="round" />
+          <circle cx="20.5" cy="10" r="1.2" fill="currentColor" />
+          <circle cx="20.5" cy="14" r="1.2" fill="currentColor" />
         </svg>
         <div>
-          <div className="brand-name">SimBench</div>
+          <div className="brand-name">Microwave</div>
           <div className="brand-sub">{t('微服务性能仿真', 'Microservice sim')}</div>
         </div>
       </div>
@@ -69,6 +74,7 @@ export function TopBar() {
         <>
           <TopologyMenu />
           <ScenarioMenu />
+          <FetchAllButton />
           <button type="button" className="btn btn--learn" onClick={() => { play('click'); openLessons(); }}>
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 5.5 8 2.5l6.5 3L8 8.5z M4 7v3.5c0 1 1.8 2 4 2s4-1 4-2V7 M14.5 5.5v4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
             {t('学习', 'Learn')}
@@ -102,6 +108,7 @@ export function TopBar() {
       <div className="top-tools">
         <LangSwitch />
         <ThemeSwitch />
+        <SettingsButton />
         <SoundSwitch />
         <FileMenu sandbox={!challenge} />
       </div>
@@ -390,5 +397,16 @@ function FileMenu({ sandbox }: { sandbox: boolean }) {
         setOpen(false);
       }} />
     </div>
+  );
+}
+
+function SettingsButton() {
+  const t = useT();
+  const setOpen = useObs((o) => o.setOpen);
+  const label = t('设置', 'Settings');
+  return (
+    <button type="button" className="icon-btn" aria-label={label} title={label} onClick={() => setOpen(true)}>
+      <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 6.8a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4Z M8.6 2h2.8l.4 2.1 1.6.9 2-.8 1.4 2.4-1.6 1.4v1.9l1.6 1.4-1.4 2.4-2-.8-1.6.9-.4 2.1H8.6l-.4-2.1-1.6-.9-2 .8-1.4-2.4 1.6-1.4V8l-1.6-1.4 1.4-2.4 2 .8 1.6-.9z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" /></svg>
+    </button>
   );
 }

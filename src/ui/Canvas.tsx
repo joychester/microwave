@@ -12,6 +12,8 @@ import type { EdgeCfg, Lang, NodeCfg, NodeType } from '../engine/types';
 import { useStore } from './store';
 import { Glyph } from './Glyph';
 import { NodeShape } from './NodeShape';
+import { CardName, CardQuick } from './CardEdit';
+import { CardProbe } from './CardProbe';
 import { levelById, useGame } from './game';
 import { useLearn } from './learn';
 import { describeProgram, evalProgram, isProgram } from '../engine/traffic';
@@ -131,10 +133,12 @@ const SimNode = memo(function SimNode({ id, data, selected }: NodeProps<SimNodeT
       {boom > 0 && <span key={boom} className="boom" aria-hidden="true">{Array.from({ length: 10 }, (_, i) => <i key={i} style={{ transform: `rotate(${i * 36}deg)` }} />)}</span>}
       {healRing > 0 && <span key={healRing} className="heal-ring" aria-hidden="true" />}
       {cfg.type !== 'client' && <Handle type="target" position={Position.Left} className="sn-handle" />}
+      <CardQuick cfg={cfg} />
+      <CardProbe cfg={cfg} />
       <div className="sn-head">
         <span className="sn-glyph"><Glyph type={cfg.type} /></span>
         <div className="sn-title">
-          <div className="sn-name" title={cfg.name}>{cfg.name}</div>
+          <CardName cfg={cfg} />
           <div className="sn-kind">{spec.short}{instances && <>{comma}{instances}</>}</div>
         </div>
         {faulted ? <span className="sn-tag sn-tag--fault">{t('故障中', 'Fault')}</span> : isBottleneck ? <span className="sn-tag">{t('瓶颈', 'Bottleneck')}</span> : null}

@@ -31,6 +31,6 @@ export function useDocumentPrefs() {
   }, [theme]);
   useEffect(() => {
     document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
-    document.title = lang === 'en' ? 'SimBench microservice performance simulator' : 'SimBench 微服务性能仿真';
+    document.title = lang === 'en' ? 'Microwave microservice performance simulator' : 'Microwave 微服务性能仿真';
   }, [lang]);
 }
