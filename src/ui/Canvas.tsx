@@ -242,6 +242,7 @@ const FlowEdge = memo(function FlowEdge(props: EdgeProps<FlowEdgeT>) {
       <EdgeLabelRenderer>
         <div
           className={`fe-label fe-label--${state}${selected ? ' is-sel' : ''}`}
+          data-edge={id}
           style={{ transform: `translate(-50%, -50%) translate(${lx}px, ${ly}px)` }}
           onClick={(e) => { e.stopPropagation(); select({ kind: 'edge', id }); }}
         >

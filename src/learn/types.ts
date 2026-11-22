@@ -11,7 +11,13 @@ export interface Measure {
   avail: number; // 0..1
   cpu: number; // CPU utilization of the lesson's main service, 0..1
   instances: number;
+  /** Per component, averaged over the window: utilization, CPU, mean latency (ms), open connections. */
+  nodes: Record<string, NodeMeasure>;
+  /** Failed requests per second by cause (e.g. pool_timeout, rejected), averaged over the window. */
+  causes: Record<string, number>;
 }
+
+export interface NodeMeasure { util: number; cpu: number; lat: number; conns: number }
 
 export interface LessonCtx {
   lang: Lang;
@@ -102,9 +108,27 @@ export interface Lesson {
   challenge?: string;
   /** Points for the lesson's live chart (x = traffic, y = average latency), once there are any. */
   curve?: (c: LessonCtx) => CurvePoint[];
+  /** Side-by-side comparisons of measured setups (e.g. p95 per configuration), once there are any. */
+  bars?: (c: LessonCtx) => BarGroup[];
 }
 
 export interface CurvePoint { x: number; y: number; cpu: number }
+
+/** One bar chart: a title and one bar per measured setup. */
+export interface BarGroup {
+  title: Text;
+  rows: BarRow[];
+  /** Bars are drawn against this maximum (defaults to the largest value). */
+  max?: number;
+}
+export interface BarRow {
+  label: Text;
+  value: number;
+  /** The value as shown at the bar's end, e.g. "62ms" or "88%". */
+  text: string;
+  /** Draw this bar in the warning colour (overloaded, failing). */
+  bad?: boolean;
+}
 
 /** A lesson that is planned but not written yet; shown in the list as coming soon. */
 export interface PlannedLesson {

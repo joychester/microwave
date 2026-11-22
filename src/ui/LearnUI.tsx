@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { LESSONS, PLANNED, lessonById } from '../learn/lessons';
-import { dyn, type CurvePoint } from '../learn/types';
+import { dyn, type BarGroup, type CurvePoint } from '../learn/types';
 import type { Text } from '../engine/types';
 import { useStore } from './store';
 import { useGame } from './game';
@@ -174,6 +174,24 @@ function LessonCurve({ points }: { points: CurvePoint[] }) {
   );
 }
 
+/** Measured setups side by side, one horizontal bar each, labelled at the end. */
+function LessonBars({ group }: { group: BarGroup }) {
+  const lang = useLang();
+  const max = group.max ?? Math.max(...group.rows.map((r) => r.value), 1e-9);
+  return (
+    <figure className="lg-bars">
+      <figcaption>{group.title[lang]}</figcaption>
+      {group.rows.map((r) => (
+        <div key={r.label.en} className="lgb-row">
+          <span className="lgb-label">{r.label[lang]}</span>
+          <span className="lgb-track"><i className={r.bad ? 'is-bad' : ''} style={{ width: `${Math.max(1.5, Math.min(100, (r.value / max) * 100))}%` }} /></span>
+          <span className={`lgb-val${r.bad ? ' is-bad' : ''}`}>{r.text}</span>
+        </div>
+      ))}
+    </figure>
+  );
+}
+
 // ---------------------------------------------------------------- guide card
 export function LessonGuide() {
   const t = useT();
@@ -190,6 +208,7 @@ export function LessonGuide() {
   const tx = (v: Text) => v[lang];
   const last = l.step === lesson.steps.length - 1;
   const curve = lesson.curve ? lesson.curve(c) : [];
+  const bars = lesson.bars ? lesson.bars(c).filter((g) => g.rows.length >= 2) : [];
   const head = t(`第 ${lesson.num} 课 · ${lesson.title.zh}`, `Lesson ${lesson.num} · ${lesson.title.en}`);
 
   if (l.collapsed) {
@@ -215,6 +234,7 @@ export function LessonGuide() {
       <h3 className="lg-title">{tx(step.title)}</h3>
       <div className="lg-body"><Prose text={tx(dyn(step.body, c))} /></div>
       {curve.length >= 2 && <LessonCurve points={curve} />}
+      {bars.map((g) => <LessonBars key={g.title.en} group={g} />)}
 
       {step.kind === 'predict' && (
         <div className="lg-options" role="group" aria-label={t('你的预测', 'Your prediction')}>

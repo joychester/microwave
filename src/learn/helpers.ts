@@ -1,4 +1,4 @@
-import type { NodeCfg, Text } from '../engine/types';
+import type { EdgeCfg, NodeCfg, Text } from '../engine/types';
 import type { LessonCtx, PredictOption } from './types';
 import { evalProgram, isProgram, programFromLegacy } from '../engine/traffic';
 
@@ -10,6 +10,16 @@ export function mainService(c: LessonCtx): NodeCfg | undefined {
     if (from?.type === 'client' && to?.type === 'service') return to;
   }
   return undefined;
+}
+
+/** The first component of a type, e.g. the lesson's database. */
+export function firstOfType(c: LessonCtx, type: string): NodeCfg | undefined {
+  return c.topo.nodes.find((n) => n.type === type);
+}
+
+/** The edge from one component to another, if they are connected. */
+export function edgeBetween(c: LessonCtx, from?: NodeCfg, to?: NodeCfg): EdgeCfg | undefined {
+  return from && to ? c.topo.edges.find((e) => e.from === from.id && e.to === to.id) : undefined;
 }
 
 /** A traffic source connected to a service. */

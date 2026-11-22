@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import type { Topology } from '../engine/types';
 import { lessonById } from '../learn/lessons';
-import { sweepNext, type LessonCtx, type Measure } from '../learn/types';
+import { sweepNext, type LessonCtx, type Measure, type NodeMeasure } from '../learn/types';
 import { mainService } from '../learn/helpers';
 import { useStore } from './store';
 import { useGame } from './game';
@@ -163,15 +163,28 @@ function measure(from: number): Measure {
   const svc = mainService(c);
   const n = Math.max(1, snaps.length);
   let req = 0, ok = 0, done = 0, latSum = 0, cpu = 0;
+  const nodes: Record<string, NodeMeasure & { latW: number }> = {};
+  const causes: Record<string, number> = {};
   for (const x of snaps) {
     const d = x.sys.ok + x.sys.fail;
     req += x.sys.req; ok += x.sys.ok; done += d; latSum += x.sys.mean * d;
     if (svc) cpu += x.nodes[svc.id]?.cpu ?? 0;
+    for (const [id, ns] of Object.entries(x.nodes)) {
+      const a = (nodes[id] ??= { util: 0, cpu: 0, lat: 0, conns: 0, latW: 0 });
+      a.util += ns.util; a.cpu += ns.cpu; a.conns += ns.extra.conns ?? 0;
+      // latency weighted by completions, ignoring seconds with none
+      const w = ns.ok + ns.err;
+      if (ns.mean !== undefined && isFinite(ns.mean) && w > 0) { a.lat += ns.mean * w; a.latW += w; }
+    }
+    for (const [k, v] of Object.entries(x.sys.causes)) causes[k] = (causes[k] ?? 0) + v;
   }
+  const perNode: Record<string, NodeMeasure> = {};
+  for (const [id, a] of Object.entries(nodes)) perNode[id] = { util: a.util / n, cpu: a.cpu / n, lat: a.latW > 0 ? a.lat / a.latW : 0, conns: a.conns / n };
+  for (const k of Object.keys(causes)) causes[k] /= n;
   // p95 of every request in the window, not an average of per-second p95s
   const pooled = pooledPct(snaps.map((x) => x.sys.hist));
   const p95 = pooled ? pooled.p95 : snaps.reduce((a, x) => a + x.sys.p95, 0) / n;
-  return { rps: req / n, avg: done > 0 ? latSum / done : 0, p95, avail: done > 0 ? ok / done : 1, cpu: cpu / n, instances: Number(svc?.params.instances ?? 0) };
+  return { rps: req / n, avg: done > 0 ? latSum / done : 0, p95, avail: done > 0 ? ok / done : 1, cpu: cpu / n, instances: Number(svc?.params.instances ?? 0), nodes: perNode, causes };
 }
 
 /** Checks the current step against the store; called on every relevant change. */
