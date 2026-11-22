@@ -105,30 +105,17 @@ export const lesson01: Lesson = {
       hold: 20,
       settle: 5,
       measure: 'base',
+      // as soon as the measurement is in: suggest pausing to read it
+      afterHighlight: (c) => (c.running ? '[data-learn="run"]' : null),
       feedback: (c) => {
         const m = c.meas.base;
         if (!m) return L('', '');
         const k = ratio(m);
         return {
-          zh: `每秒处理约 ${fmtRate(m.rps)} 个请求，可用性 ${fmtAvail(m.avail)}，平均延迟 ${fmtLatency(m.avg)}，p95 ${fmtLatency(m.p95)}，约为平均的 ${x(k)}。${reveal(c, 'predict-p95', k, P95_OPTIONS).zh}\n\n为什么差这么多？每个请求的处理时间本来就不一样：大部分很快，少数很慢（长尾）。平均值会把这些慢请求"摊平"藏起来，所以 SLO 通常用 p95 或 p99 来定。`,
-          en: `About ${fmtRate(m.rps)} requests/s, availability ${fmtAvail(m.avail)}, average latency ${fmtLatency(m.avg)}, p95 ${fmtLatency(m.p95)}: about ${x(k)} the average. ${reveal(c, 'predict-p95', k, P95_OPTIONS).en}\n\nWhy the gap? Processing times vary: most requests are fast and a few are slow (the long tail). An average smooths those slow requests away, which is why SLOs are usually set on p95 or p99.`,
+          zh: `每秒处理约 ${fmtRate(m.rps)} 个请求，可用性 ${fmtAvail(m.avail)}，平均延迟 ${fmtLatency(m.avg)}，p95 ${fmtLatency(m.p95)}，约为平均的 ${x(k)}。${reveal(c, 'predict-p95', k, P95_OPTIONS).zh}\n\n为什么差这么多？每个请求的处理时间本来就不一样：大部分很快，少数很慢（长尾）。平均值会把这些慢请求"摊平"藏起来，所以 SLO 通常用 p95 或 p99 来定。\n\n先点顶栏闪烁的"暂停"（就是刚才的"运行"按钮），让数字停下来慢慢读。暂停时所有数字停在当前这一刻，运行时长也不消耗；之后需要时点"继续"，仿真从停下的地方接着跑。按空格键也可以暂停或继续。`,
+          en: `About ${fmtRate(m.rps)} requests/s, availability ${fmtAvail(m.avail)}, average latency ${fmtLatency(m.avg)}, p95 ${fmtLatency(m.p95)}: about ${x(k)} the average. ${reveal(c, 'predict-p95', k, P95_OPTIONS).en}\n\nWhy the gap? Processing times vary: most requests are fast and a few are slow (the long tail). An average smooths those slow requests away, which is why SLOs are usually set on p95 or p99.\n\nFirst press the flashing Pause in the top bar (the button that said Run) so the numbers hold still while you read. While paused every number stays put and the run length stops counting down; press Resume later and the simulation carries on from where it stopped. The space bar pauses and resumes, too.`,
         };
       },
-    },
-    {
-      id: 'pause',
-      kind: 'do',
-      title: L('暂停下来读数', 'Pause to read'),
-      body: L(
-        '测量完成。点顶栏的"暂停"（就是刚才的"运行"按钮），让仿真停下来再慢慢读数。\n\n暂停时所有数字停在当前这一刻，运行时长也不再消耗。需要时再点"继续"，仿真从停下的地方接着跑。按空格键也可以暂停或继续。',
-        'The measurement is done. Press Pause in the top bar (the button that said Run) to stop the simulation while you read the numbers.\n\nWhile paused, every number stays where it is and the run length stops counting down. Press Resume when you need it again, and the simulation carries on from where it stopped. The space bar pauses and resumes, too.',
-      ),
-      highlight: (c) => (c.running ? '[data-learn="run"]' : null),
-      check: (c) => !c.running,
-      feedback: L(
-        '已暂停，按钮变成了"继续"。后面需要仿真跑起来的步骤，指引会再指向这个按钮。',
-        'Paused: the button now says Resume. When a later step needs the simulation running, the guide points at this button again.',
-      ),
     },
     {
       id: 'inspect',

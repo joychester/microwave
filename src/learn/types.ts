@@ -52,6 +52,8 @@ interface StepBase {
   body: Dyn<Text>;
   /** CSS selector of the UI element to point at. */
   highlight?: Dyn<string | null>;
+  /** What to point at once the step is done, while its result is on screen (e.g. Pause after a measurement). */
+  afterHighlight?: Dyn<string | null>;
 }
 
 /** The learner does something; the step completes when `check` holds (for `hold` sim seconds, if set). */

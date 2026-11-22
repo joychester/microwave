@@ -294,7 +294,8 @@ export function LessonHighlight() {
     setSpot(null);
     if (!active) return;
     const step = lessonById(lessonId)?.steps[stepIdx];
-    if (!step?.highlight || done) return;
+    const target = done ? step?.afterHighlight : step?.highlight;
+    if (!target) return;
     let el: Element | null = null;
     let last = '';
     let raf = 0;
@@ -302,7 +303,7 @@ export function LessonHighlight() {
     const loop = () => {
       // look the target up a few times a second (it can appear later, e.g. after a selection)
       if (tick++ % 20 === 0) {
-        const sel = dyn(step.highlight!, lessonCtx());
+        const sel = dyn(target, lessonCtx());
         const next = sel ? document.querySelector(sel) : null;
         if (next !== el) {
           el = next;
