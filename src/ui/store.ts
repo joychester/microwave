@@ -18,6 +18,9 @@ const LS_KEY = 'simbench.topology.v1';
 const LS_PREFS = 'simbench.prefs.v1';
 export type Theme = 'light' | 'dark';
 
+/** A button on a toast, such as Undo. */
+export interface ToastAction { label: string; run: () => void }
+
 interface Prefs { lang: Lang; theme: Theme; flowWidth: boolean }
 function loadPrefs(): Prefs {
   let lang: Lang = 'en';
@@ -71,7 +74,7 @@ interface State {
   pending: PendingView[];
   dockTab: DockTab;
   dockOpen: boolean;
-  toast: { text: string; tone: 'info' | 'warn'; id: number } | null;
+  toast: { text: string; tone: 'info' | 'warn'; id: number; action?: ToastAction } | null;
   activeScenario: string | null;
   bottleneckId: string | null;
   lang: Lang;
@@ -117,7 +120,7 @@ interface State {
   inject: (spec: FailureSpec, at_s?: number) => void;
   clearFailure: (id: string) => void;
   setDock: (tab: DockTab | null) => void;
-  showToast: (text: string, tone?: 'info' | 'warn') => void;
+  showToast: (text: string, tone?: 'info' | 'warn', action?: ToastAction) => void;
   setScenario: (id: string | null) => void;
 }
 
@@ -247,10 +250,40 @@ export const useStore = create<State>((set, get) => ({
   removeNodes: (ids) => {
     const t = get().topology;
     const s = new Set(ids);
+    const gone = t.nodes.filter((n) => s.has(n.id));
+    if (!gone.length) return;
+    const goneEdges = t.edges.filter((e) => s.has(e.from) || s.has(e.to));
     const nt = { ...t, nodes: t.nodes.filter((n) => !s.has(n.id)), edges: t.edges.filter((e) => !s.has(e.from) && !s.has(e.to)) };
     const sel = get().selection;
     set({ topology: nt, selection: sel && s.has(sel.id) ? null : sel });
     scheduleSync(nt);
+    // Undo puts the components and their connections back where they were, as long as the canvas
+    // hasn't been replaced in the meantime.
+    const zh = get().lang === 'zh';
+    const name = gone.length === 1 ? gone[0].name : '';
+    get().showToast(
+      zh ? (name ? `已删除“${name}”` : `已删除 ${gone.length} 个组件`) : (name ? `Deleted “${name}”` : `Deleted ${gone.length} components`),
+      'info',
+      {
+        label: zh ? '撤销' : 'Undo',
+        run: () => {
+          const cur = get().topology;
+          if (cur.name !== t.name) return;
+          const have = new Set(cur.nodes.map((n) => n.id));
+          const back = gone.filter((n) => !have.has(n.id));
+          if (!back.length) return;
+          // keep the original order so the canvas looks the same as before
+          const order = new Map(t.nodes.map((n, i) => [n.id, i]));
+          const nodes = [...cur.nodes, ...back].sort((a, b) => (order.get(a.id) ?? Infinity) - (order.get(b.id) ?? Infinity));
+          const ids = new Set(nodes.map((n) => n.id));
+          const haveEdge = new Set(cur.edges.map((e) => e.id));
+          const edges = [...cur.edges, ...goneEdges.filter((e) => !haveEdge.has(e.id) && ids.has(e.from) && ids.has(e.to))];
+          const rt = { ...cur, nodes, edges };
+          set({ topology: rt, toast: null });
+          scheduleSync(rt);
+        },
+      },
+    );
   },
   removeEdges: (ids) => {
     const t = get().topology;
@@ -278,10 +311,11 @@ export const useStore = create<State>((set, get) => ({
     if (tab === null) set({ dockOpen: !get().dockOpen });
     else set({ dockTab: tab, dockOpen: true, unseenEvents: tab === 'events' ? 0 : get().unseenEvents });
   },
-  showToast: (text, tone = 'info') => {
+  showToast: (text, tone = 'info', action) => {
     const id = Date.now();
-    set({ toast: { text, tone, id } });
-    setTimeout(() => { if (get().toast?.id === id) set({ toast: null }); }, 3200);
+    set({ toast: { text, tone, id, action } });
+    // a toast with a button stays up longer so there is time to press it
+    setTimeout(() => { if (get().toast?.id === id) set({ toast: null }); }, action ? 6000 : 3200);
   },
   setScenario: (id) => set({ activeScenario: id }),
 }));

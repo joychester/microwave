@@ -1,5 +1,5 @@
-// Editing on the canvas card itself: double-click the name to rename, and a −/+ stepper for
-// the one parameter people change most on each component type. Only while the simulation is
+// Editing on the canvas card itself: double-click the name to rename, a −/+ stepper for
+// the one parameter people change most on each component type, and a × to delete it. Only while the simulation is
 // not running (before the first run or when paused), and never on components a level locks.
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { NODE_SPECS } from '../engine/specs';
@@ -154,5 +154,27 @@ export function CardQuick({ cfg }: { cfg: NodeCfg }) {
         <button type="button" aria-label={t(`增加${label}`, `Increase ${label}`)} disabled={q.value >= q.max} onClick={(e) => set(1, e)}>+</button>
       </div>
     </div>
+  );
+}
+
+/** The × at a card's top-right corner: deletes the component (Undo is on the toast that follows). */
+export function CardDelete({ cfg }: { cfg: NodeCfg }) {
+  const t = useT();
+  const editable = useCardEditable(cfg.id);
+  const remove = useStore((s) => s.removeNodes);
+  if (!editable) return null;
+  const label = t(`删除“${cfg.name}”`, `Delete “${cfg.name}”`);
+  return (
+    <button
+      type="button"
+      className="sn-del nodrag nopan"
+      aria-label={label}
+      title={label}
+      onMouseDown={(e: MouseEvent) => e.stopPropagation()}
+      onDoubleClick={(e: MouseEvent) => e.stopPropagation()}
+      onClick={(e: MouseEvent) => { e.stopPropagation(); remove([cfg.id]); }}
+    >
+      <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2 2 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
+    </button>
   );
 }

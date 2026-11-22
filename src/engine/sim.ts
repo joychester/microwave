@@ -768,12 +768,16 @@ export class Simulator {
     const idx = this.rng.next() < hotShare ? 0 : this.rng.int(n);
     if (idx === 0 && this.intensity(rt.cfg.id, 'shardDown').v > 0) { this.at(1, () => done(false, 'conn_refused')); return; }
     const shard = rt.instances[idx];
+    const t0 = this.now;
     this.submit(rt, shard, {
       arrive: this.now,
       fail: (c) => done(false, c),
       run: (inst, release) => {
         this.at(sample(rt.dist('opLatency'), this.rng), () => {
           release();
+          // the command itself (queueing + execution), without the origin fetch on a miss
+          rt.acc.extra.cmdMs = (rt.acc.extra.cmdMs ?? 0) + (this.now - t0);
+          rt.acc.extra.cmdN = (rt.acc.extra.cmdN ?? 0) + 1;
           req.opDone?.();
           const fl = this.intensity(rt.cfg.id, 'flush');
           let hr: number;
@@ -1264,6 +1268,8 @@ export class Simulator {
       if (rt.type === 'cache') {
         const h = a.extra.hit ?? 0, m = a.extra.miss ?? 0;
         extra.hitRatio = h + m > 0 ? h / (h + m) : NaN;
+        extra.cmdMs = a.extra.cmdN ? (a.extra.cmdMs ?? 0) / a.extra.cmdN : NaN;
+        extra.cmdN = a.extra.cmdN ?? 0;
         let hottest = 0;
         for (const i of rt.instances) hottest = Math.max(hottest, i.queue.length + i.busy);
         extra.hottestQueue = hottest;

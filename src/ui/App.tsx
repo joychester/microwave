@@ -120,7 +120,12 @@ function ScenarioBanner() {
 function Toast() {
   const toast = useStore((s) => s.toast);
   if (!toast) return null;
-  return <div key={toast.id} className={`toast toast--${toast.tone}`} role="status">{toast.text}</div>;
+  return (
+    <div key={toast.id} className={`toast toast--${toast.tone}`} role="status">
+      {toast.text}
+      {toast.action && <button type="button" className="toast-act" onClick={toast.action.run}>{toast.action.label}</button>}
+    </div>
+  );
 }
 
 function Shortcuts() {

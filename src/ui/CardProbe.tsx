@@ -1,4 +1,4 @@
-// The pipette on a service card: pick a source, a service label and which metrics to draw out of
+// The pipette on a service, gateway, cache or database card: pick a source, a service label and which metrics to draw out of
 // your monitoring stack, fetch them, and see them next to the simulation's numbers, without
 // leaving the canvas. Reading real metrics changes nothing in the model, so it works while running.
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
@@ -7,8 +7,8 @@ import type { NodeCfg } from '../engine/types';
 import { useStore } from './store';
 import { useGame } from './game';
 import { useLang, useT } from './i18n';
-import { METRIC_LABEL, OBS_METRICS, OBS_TYPES, connFor, fetchFor, metricsFor, serviceFor, useObs, useObsResults, type ObsMetric } from './obs';
-import { CompareResult, PreviewBadge, useSimMetrics } from './ObsPanel';
+import { KIND_METRICS, OBS_TYPES, connFor, fetchFor, kindOf, metricShort, metricsFor, serviceFor, useObs, useObsResults, type ObsMetric } from './obs';
+import { CompareResult, PreviewBadge, labelHint, labelName, useSimMetrics } from './ObsPanel';
 
 const stop = (e: MouseEvent) => e.stopPropagation();
 
@@ -58,6 +58,8 @@ function ProbePopover({ cfg, anchor, onClose }: { cfg: NodeCfg; anchor: React.Re
   const saved = useObsResults((r) => r.by[cfg.id]);
   const sim = useSimMetrics(cfg.id);
   const conn = connFor(cfg, conns);
+  const kind = kindOf(cfg.type);
+  const all = KIND_METRICS[kind];
   const picked = metricsFor(cfg);
   const [label, setLabel] = useState(serviceFor(cfg));
   const [busy, setBusy] = useState(false);
@@ -100,8 +102,8 @@ function ProbePopover({ cfg, anchor, onClose }: { cfg: NodeCfg; anchor: React.Re
   }, [onClose, anchor]);
 
   const toggle = (m: ObsMetric) => {
-    const next = picked.includes(m) ? picked.filter((x) => x !== m) : OBS_METRICS.filter((x) => x === m || picked.includes(x));
-    if (next.length) update(cfg.id, { obsMetrics: next.length === OBS_METRICS.length ? '' : next.join(',') });
+    const next = picked.includes(m) ? picked.filter((x) => x !== m) : all.filter((x) => x === m || picked.includes(x));
+    if (next.length) update(cfg.id, { obsMetrics: next.length === all.length ? '' : next.join(',') });
   };
   const commitLabel = () => { if (label.trim() !== serviceFor(cfg)) update(cfg.id, { obsService: label.trim() }); };
   const go = async () => {
@@ -139,10 +141,10 @@ function ProbePopover({ cfg, anchor, onClose }: { cfg: NodeCfg; anchor: React.Re
             </select>
           </label>
           <label className="obs-field">
-            <span>{t('服务标签', 'Service label')}</span>
+            <span>{labelName(kind, t)}</span>
             <input
               value={label}
-              placeholder={t('例如 order-service', 'e.g. order-service')}
+              placeholder={labelHint(kind, t)}
               autoFocus={!label}
               onChange={(e) => setLabel(e.target.value)}
               onBlur={commitLabel}
@@ -151,10 +153,10 @@ function ProbePopover({ cfg, anchor, onClose }: { cfg: NodeCfg; anchor: React.Re
           </label>
           <fieldset className="probe-metrics">
             <legend>{t('要获取的指标', 'Metrics to fetch')}</legend>
-            {OBS_METRICS.map((m) => (
+            {all.map((m) => (
               <label key={m}>
                 <input type="checkbox" checked={picked.includes(m)} disabled={picked.length === 1 && picked.includes(m)} onChange={() => toggle(m)} />
-                {METRIC_LABEL[m][lang].replace(/（.*）|\s\(.*\)/, '')}
+                {metricShort(kind, m, lang)}
               </label>
             ))}
           </fieldset>
@@ -164,7 +166,7 @@ function ProbePopover({ cfg, anchor, onClose }: { cfg: NodeCfg; anchor: React.Re
             </button>
             <button type="button" className="link" onClick={() => { onClose(); openSettings(true); }}>{t('设置', 'Settings')}</button>
           </div>
-          {saved && <CompareResult nodeId={cfg.id} saved={saved} sim={sim} compact />}
+          {saved && <CompareResult nodeId={cfg.id} kind={kind} saved={saved} sim={sim} compact />}
         </>
       )}
     </div>,

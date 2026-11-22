@@ -14,7 +14,7 @@ import { levelById, useGame } from './game';
 import { isParamLocked } from '../game/levels';
 import { TrafficEditor } from './TrafficEditor';
 import { PreviewBadge, RealMetrics } from './ObsPanel';
-import { useObs } from './obs';
+import { OBS_TYPES, useObs } from './obs';
 
 function useLevel() {
   const mode = useGame((g) => g.mode);
@@ -122,7 +122,7 @@ function NodeInspector({ node }: { node: NodeCfg }) {
         </div>
       )}
 
-      {(node.type === 'service' || node.type === 'gateway') && !level && (
+      {OBS_TYPES.has(node.type) && !level && (
         <Section title={t('真实指标', 'Real metrics')} defaultOpen={hasObs} aside={<PreviewBadge />}>
           <RealMetrics node={node} />
         </Section>

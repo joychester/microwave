@@ -12,7 +12,7 @@ import type { EdgeCfg, Lang, NodeCfg, NodeType } from '../engine/types';
 import { useStore } from './store';
 import { Glyph } from './Glyph';
 import { NodeShape } from './NodeShape';
-import { CardName, CardQuick } from './CardEdit';
+import { CardDelete, CardName, CardQuick } from './CardEdit';
 import { CardProbe } from './CardProbe';
 import { levelById, useGame } from './game';
 import { useLearn } from './learn';
@@ -135,6 +135,7 @@ const SimNode = memo(function SimNode({ id, data, selected }: NodeProps<SimNodeT
       {cfg.type !== 'client' && <Handle type="target" position={Position.Left} className="sn-handle" />}
       <CardQuick cfg={cfg} />
       <CardProbe cfg={cfg} />
+      <CardDelete cfg={cfg} />
       <div className="sn-head">
         <span className="sn-glyph"><Glyph type={cfg.type} /></span>
         <div className="sn-title">
@@ -418,8 +419,14 @@ export function Canvas() {
         onEdgeClick={(_, e) => select({ kind: 'edge', id: e.id })}
         onPaneClick={() => select(null)}
         onNodeDragStop={(_, _n, moved) => moved.forEach((m) => updateNode(m.id, { x: Math.round(m.position.x), y: Math.round(m.position.y) }))}
-        onNodesDelete={(ns) => removeNodes(ns.map((n) => n.id))}
-        onEdgesDelete={(es) => removeEdges(es.map((e) => e.id))}
+        onDelete={({ nodes: ns, edges: es }) => {
+          // React Flow also reports the edges of deleted nodes; let removeNodes take those, so its
+          // Undo brings the connections back with the components
+          const gone = new Set(ns.map((n) => n.id));
+          const loose = es.filter((e) => !gone.has(e.source) && !gone.has(e.target)).map((e) => e.id);
+          if (loose.length) removeEdges(loose);
+          if (ns.length) removeNodes(ns.map((n) => n.id));
+        }}
         deleteKeyCode={['Backspace', 'Delete']}
         fitView
         fitViewOptions={{ padding: 0.06 }}
