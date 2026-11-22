@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { play } from './sound';
 import {
-  Background, BackgroundVariant, BaseEdge, ControlButton, Controls, EdgeLabelRenderer, Handle, Position, ReactFlow,
+  Background, BackgroundVariant, BaseEdge, Controls, EdgeLabelRenderer, Handle, Position, ReactFlow,
   getBezierPath, useNodesState, useReactFlow,
   type Connection, type Edge, type EdgeProps, type Node, type NodeProps,
 } from '@xyflow/react';
@@ -209,7 +209,6 @@ const FlowEdge = memo(function FlowEdge(props: EdgeProps<FlowEdgeT>) {
   const { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data } = props;
   const t = useT();
   const s = useStore((st) => st.latest?.edges[id] ?? null);
-  const byFlow = useStore((st) => st.flowWidth);
   const rate = useStore((st) => st.edgeRate[id] ?? 0);
   const peak = useStore((st) => st.edgePeak);
   const running = useStore((st) => st.running);
@@ -222,7 +221,7 @@ const FlowEdge = memo(function FlowEdge(props: EdgeProps<FlowEdgeT>) {
   let state = calls > 0 ? 'ok' : 'idle';
   if (failShare > 0.005 || retryShare > 0.03) state = 'warn';
   if (failShare > 0.05 || cbOpen) state = 'crit';
-  const width = byFlow ? flowWidth(rate, peak) : 1.8;
+  const width = flowWidth(rate, peak);
   const arrow = arrowFor(width);
   const [path, lx, ly] = getBezierPath({ sourceX, sourceY, targetX: targetX - arrow.inset, targetY, sourcePosition, targetPosition });
   const dur = 1.2;
@@ -346,8 +345,6 @@ export function Canvas() {
   }, [loadSeq, fitView, inChallenge, learning, nodeCount]);
 
   const markerColor = theme === 'dark' ? '#7d8a97' : '#8593a0';
-  const byFlow = useStore((st) => st.flowWidth);
-  const setFlowWidth = useStore((st) => st.setFlowWidth);
   const edges: FlowEdgeT[] = useMemo(() => {
     const types = new Map(topology.nodes.map((n) => [n.id, n.type]));
     // traffic share for edges that split exclusively
@@ -436,17 +433,7 @@ export function Canvas() {
         defaultEdgeOptions={{ type: 'flow' }}
       >
         <Background variant={BackgroundVariant.Dots} gap={22} size={1.3} color={theme === 'dark' ? '#2b333c' : '#c3ccd5'} />
-        <Controls showInteractive={false} position="bottom-left">
-          <ControlButton
-            onClick={() => setFlowWidth(!byFlow)}
-            className={byFlow ? 'is-on' : ''}
-            aria-pressed={byFlow}
-            title={byFlow ? t('线宽按流量显示（点击关闭）', 'Edge width follows traffic (click to turn off)') : t('线宽按流量显示（点击打开）', 'Edge width follows traffic (click to turn on)')}
-            aria-label={t('线宽按流量显示', 'Edge width follows traffic')}
-          >
-            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12" strokeWidth="1" /><path d="M2 8h12" strokeWidth="2.2" /><path d="M2 12.5h12" strokeWidth="3.6" /></svg>
-          </ControlButton>
-        </Controls>
+        <Controls showInteractive={false} position="bottom-left" />
       </ReactFlow>
       {topology.nodes.length <= 1 && (
         <div className="canvas-empty">

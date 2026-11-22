@@ -21,11 +21,10 @@ export type Theme = 'light' | 'dark';
 /** A button on a toast, such as Undo. */
 export interface ToastAction { label: string; run: () => void }
 
-interface Prefs { lang: Lang; theme: Theme; flowWidth: boolean }
+interface Prefs { lang: Lang; theme: Theme }
 function loadPrefs(): Prefs {
   let lang: Lang = 'en';
   let theme: Theme = 'light';
-  let flowWidth = true;
   try { if (/^zh/i.test(navigator.language)) lang = 'zh'; } catch { /* ignore */ }
   try { if (window.matchMedia('(prefers-color-scheme: dark)').matches) theme = 'dark'; } catch { /* ignore */ }
   try {
@@ -34,10 +33,9 @@ function loadPrefs(): Prefs {
       const p = JSON.parse(raw);
       if (p.lang === 'zh' || p.lang === 'en') lang = p.lang;
       if (p.theme === 'light' || p.theme === 'dark') theme = p.theme;
-      if (typeof p.flowWidth === 'boolean') flowWidth = p.flowWidth;
     }
   } catch { /* storage unavailable */ }
-  return { lang, theme, flowWidth };
+  return { lang, theme };
 }
 function savePrefs(p: Prefs) {
   try { localStorage.setItem(LS_PREFS, JSON.stringify(p)); } catch { /* ignore */ }
@@ -80,14 +78,11 @@ interface State {
   lang: Lang;
   theme: Theme;
   loadSeq: number;
-  /** Edge widths follow traffic volume. */
-  flowWidth: boolean;
   /** Per-edge calls/s, smoothed over ~3 s. */
   edgeRate: Record<string, number>;
   /** Highest smoothed edge rate seen in this run: the reference for edge widths. */
   edgePeak: number;
 
-  setFlowWidth: (on: boolean) => void;
   /** Calibration dialog open. */
   calOpen: boolean;
   /** Topology before the last calibration was applied, for undo. Cleared when another topology loads. */
@@ -177,7 +172,6 @@ export const useStore = create<State>((set, get) => ({
   lang: PREFS.lang,
   theme: PREFS.theme,
   loadSeq: 0,
-  flowWidth: PREFS.flowWidth,
   edgeRate: {},
   edgePeak: 0,
   calOpen: false,
@@ -195,21 +189,17 @@ export const useStore = create<State>((set, get) => ({
     get().setTopology(b, { reset: true });
   },
 
-  setFlowWidth: (on) => {
-    set({ flowWidth: on });
-    savePrefs({ lang: get().lang, theme: get().theme, flowWidth: on });
-  },
 
   setLang: (l) => {
     if (l === get().lang) return;
     const t = translateTopology(get().topology, l);
     set({ lang: l, topology: t });
-    savePrefs({ lang: l, theme: get().theme, flowWidth: get().flowWidth });
+    savePrefs({ lang: l, theme: get().theme });
     scheduleSync(t);
   },
   setTheme: (th) => {
     set({ theme: th });
-    savePrefs({ lang: get().lang, theme: th, flowWidth: get().flowWidth });
+    savePrefs({ lang: get().lang, theme: th });
   },
   setTopology: (t, opts) => {
     set({ topology: t, selection: null, loadSeq: get().loadSeq + 1, edgeRate: {}, edgePeak: 0, calBackup: null });
