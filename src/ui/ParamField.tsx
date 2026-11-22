@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from 'react';
 import type { ParamSpec } from '../engine/specs';
 import type { Dist, ParamValue } from '../engine/types';
 import { useLang, useT } from './i18n';
+import { PathMixEditor } from './PathMixEditor';
 
 const UNIT: Partial<Record<ParamSpec['kind'], string>> = { ms: 'ms', seconds: 's', ratio: '%' };
 
@@ -90,6 +91,16 @@ export function ParamField({ spec, value, onChange, disabled }: { spec: ParamSpe
             {opts.map((o) => <option key={o.value} value={o.value}>{o.label[lang]}</option>)}
           </select>
         )}
+        {help && <p className="pf-help">{help}</p>}
+      </fieldset>
+    );
+  }
+
+  if (spec.kind === 'pathmix') {
+    return (
+      <fieldset data-param={spec.key} className="pf" disabled={disabled} title={disabled ? lockTitle : undefined}>
+        <span className="pf-label" id={id}>{label}{disabled && <Lock />}</span>
+        <PathMixEditor value={String(value ?? '')} onChange={onChange} labelId={id} disabled={disabled} />
         {help && <p className="pf-help">{help}</p>}
       </fieldset>
     );

@@ -221,7 +221,12 @@ export function calibrate(source: Topology, rows: CalRow[], opts: CalibrationOpt
         break;
       case 'service':
       case 'gateway':
-        if (r.pods !== undefined) p.instances = Math.max(1, Math.round(r.pods));
+        if (r.pods !== undefined) {
+          const cap = NODE_SPECS[n.type].params.find((x) => x.key === 'instances')?.max ?? Infinity;
+          const pods = Math.max(1, Math.round(r.pods));
+          if (pods > cap) warn(n, `测得 ${pods} 个 Pod，超过实例数上限 ${cap}，按 ${cap} 计算`, `Measured ${pods} pods, above the ${cap}-instance limit; using ${cap}`);
+          p.instances = Math.min(pods, cap);
+        }
         if (r.threads_per_pod !== undefined) p.workers = Math.max(1, Math.round(r.threads_per_pod));
         if (r.cores_per_pod !== undefined) {
           if (n.type === 'service') p.cpuCores = r.cores_per_pod;

@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import SimWorker from '../engine/worker?worker&inline';
 import { createHost, type ToWorker } from '../engine/host';
 import { referenceTopology, translateTopology } from '../engine/presets';
+import { NODE_SPECS } from '../engine/specs';
+import { mixProblems, mixToPercent, parseMix } from '../engine/pathmix';
 import type { EdgeCfg, FailureSpec, Lang, NodeCfg, Params, SimEvent, Snapshot, Topology } from '../engine/types';
 
 export interface FailureView {
@@ -42,12 +44,44 @@ function savePrefs(p: Prefs) {
 }
 const PREFS = loadPrefs();
 
+// Instance counts whose limits were lowered (a service now goes up to 100): older saves are clamped.
+const CAPPED = ['instances', 'asMin', 'asMax'];
+
+/**
+ * Brings an older topology up to date: path mixes given as relative weights ("/:1") become
+ * percentages, and instance counts above their component's limit are clamped to it.
+ */
+function upgradeTopology(t: Topology): Topology {
+  let changed = false;
+  const nodes = t.nodes.map((n) => {
+    let params = n.params;
+    if (n.type === 'client' && typeof params.mix === 'string') {
+      const mix = mixToPercent(params.mix);
+      if (mix !== params.mix) params = { ...params, mix };
+    }
+    for (const key of CAPPED) {
+      const max = NODE_SPECS[n.type]?.params.find((x) => x.key === key)?.max;
+      const v = Number(params[key]);
+      if (max !== undefined && params[key] !== undefined && v > max) params = { ...params, [key]: max };
+    }
+    if (params === n.params) return n;
+    changed = true;
+    return { ...n, params };
+  });
+  return changed ? { ...t, nodes } : t;
+}
+
+/** The first traffic source whose path mix can't run (bad row, or shares not adding up to 100%). */
+export function badMixSource(t: Topology): NodeCfg | null {
+  return t.nodes.find((n) => n.type === 'client' && typeof n.params.mix === 'string' && mixProblems(parseMix(n.params.mix)).length > 0) ?? null;
+}
+
 function loadTopology(): Topology {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
       const t = JSON.parse(raw) as Topology;
-      if (t && Array.isArray(t.nodes) && Array.isArray(t.edges)) return t;
+      if (t && Array.isArray(t.nodes) && Array.isArray(t.edges)) return upgradeTopology(t);
     }
   } catch { /* storage unavailable */ }
   return referenceTopology(PREFS.lang);
@@ -105,6 +139,8 @@ interface State {
   removeEdges: (ids: string[]) => void;
   select: (s: Selection) => void;
   run: () => void;
+  /** False (and says why) when the canvas can't run yet, e.g. a path mix that doesn't add up to 100%. */
+  canRun: () => boolean;
   pause: () => void;
   toggle: () => void;
   reset: () => void;
@@ -201,7 +237,8 @@ export const useStore = create<State>((set, get) => ({
     set({ theme: th });
     savePrefs({ lang: get().lang, theme: th });
   },
-  setTopology: (t, opts) => {
+  setTopology: (t0, opts) => {
+    const t = upgradeTopology(t0);
     set({ topology: t, selection: null, loadSeq: get().loadSeq + 1, edgeRate: {}, edgePeak: 0, calBackup: null });
     saveTopology(t);
     if (opts?.reset) get().reset();
@@ -284,7 +321,19 @@ export const useStore = create<State>((set, get) => ({
     scheduleSync(nt);
   },
   select: (s) => set({ selection: s }),
-  run: () => { send({ type: 'run' }); set({ running: true }); },
+  run: () => {
+    if (!get().canRun()) return;
+    send({ type: 'run' }); set({ running: true });
+  },
+  canRun: () => {
+    const bad = badMixSource(get().topology);
+    if (!bad) return true;
+    // open the source in the inspector, where the mix editor shows what's wrong
+    set({ selection: { kind: 'node', id: bad.id } });
+    const zh = get().lang === 'zh';
+    get().showToast(zh ? `\u201c${bad.name}\u201d的请求路径比例有误（合计须为 100%），改好后才能运行` : `Fix the request path mix on \u201c${bad.name}\u201d (shares must add up to 100%) before running`, 'warn');
+    return false;
+  },
   pause: () => { send({ type: 'pause' }); set({ running: false }); },
   toggle: () => (get().running ? get().pause() : get().run()),
   reset: () => {

@@ -106,6 +106,7 @@ export const useGame = create<GameState>((set, get) => ({
   startPlay: () => {
     const level = levelById(get().levelId);
     if (!level) return;
+    if (!useStore.getState().canRun()) return;
     set({ phase: 'countdown', countdown: 3 });
     play('tick');
     if (countdownTimer) clearInterval(countdownTimer);

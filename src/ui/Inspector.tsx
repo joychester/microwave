@@ -5,6 +5,7 @@ import type { EdgeCfg, NodeCfg, Params } from '../engine/types';
 import { useStore } from './store';
 import { Glyph } from './Glyph';
 import { ParamField, NumberInput } from './ParamField';
+import { FaultPreview } from './FaultPreview';
 import { TimeChart } from './TimeChart';
 import { useSeries } from './theme';
 import { useLang, useT } from './i18n';
@@ -251,8 +252,9 @@ function FailureRow({ node, spec }: { node: NodeCfg; spec: FailureKindSpec }) {
               <NumberInput value={vals[p.key]} min={p.min} max={p.max} step={p.step ?? 1} onCommit={(v) => setVals({ ...vals, [p.key]: v })} />
             </label>
           ))}
-          <label><span>{t('持续', 'Duration')}</span><NumberInput value={dur} min={0} max={3600} unit="s" onCommit={setDur} /></label>
+          <label title={t('填 0 表示一直生效，直到手动结束', '0 keeps it on until you end it')}><span>{t('持续时长', 'Lasts')}</span><NumberInput value={dur} min={0} max={3600} unit="s" onCommit={setDur} /></label>
           {spec.defaultRecovery !== undefined && <label><span>{t('恢复', 'Recovery')}</span><NumberInput value={rec} min={0} max={3600} unit="s" onCommit={setRec} /></label>}
+          <FaultPreview node={node} spec={spec} vals={vals} dur={dur} rec={spec.defaultRecovery !== undefined ? rec : 0} />
         </div>
       )}
     </div>

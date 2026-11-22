@@ -50,6 +50,7 @@ function valueText(spec: ParamSpec, v: unknown, lang: Lang): string {
     case 'ratio': return `${(Number(v) * 100).toFixed(Number(v) * 100 % 1 ? 1 : 0)}%`;
     case 'ms': return fmtLatency(Number(v));
     case 'seconds': return `${v}s`;
+    case 'pathmix': return String(v).split(',').map((x) => x.replace(/:\s*([\d.]+)$/, ' $1%')).join(', ');
     default: return String(v);
   }
 }

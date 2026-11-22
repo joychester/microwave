@@ -110,6 +110,7 @@ export const useLimit = create<LimitState>((set, get) => ({
   setHoldSeconds: (v) => set({ holdSeconds: v }),
   start: () => {
     const st = useStore.getState();
+    if (!st.canRun()) return;
     st.reset();
     st.setSpeed(20);
     st.setLoadScale(1);

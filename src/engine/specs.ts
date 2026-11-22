@@ -2,7 +2,7 @@
 // the UI generates forms from these specs. One source of truth. All text is bilingual.
 import { L, type Dist, type NodeType, type Params, type Text } from './types';
 
-export type ParamKind = 'int' | 'number' | 'ratio' | 'ms' | 'seconds' | 'bool' | 'enum' | 'dist' | 'text';
+export type ParamKind = 'int' | 'number' | 'ratio' | 'ms' | 'seconds' | 'bool' | 'enum' | 'dist' | 'text' | 'pathmix';
 
 export type GroupId =
   | 'traffic' | 'route' | 'slo' | 'capacity' | 'processing' | 'ratelimit' | 'autoscale' | 'routing' | 'health' | 'gc'
@@ -66,11 +66,12 @@ export interface NodeTypeSpec {
 
 const ln = (median: number, p99: number): Dist => ({ dist: 'lognormal', median, p99 });
 
-const autoscale = (target = 0.6): ParamSpec[] => [
+// maxInst matches the component's own Instances limit, so the autoscaler can't grow past it
+const autoscale = (target = 0.6, maxInst = 100): ParamSpec[] => [
   { key: 'asEnabled', label: L('自动扩缩容', 'Autoscaling'), kind: 'bool', default: false, group: 'autoscale' },
   { key: 'asTarget', label: L('目标 CPU 利用率', 'Target CPU utilization'), kind: 'ratio', default: target, min: 0.1, max: 0.95, step: 0.05, group: 'autoscale', showIf: (p) => !!p.asEnabled },
-  { key: 'asMin', label: L('最少实例', 'Min instances'), kind: 'int', default: 2, min: 1, max: 200, group: 'autoscale', showIf: (p) => !!p.asEnabled },
-  { key: 'asMax', label: L('最多实例', 'Max instances'), kind: 'int', default: 20, min: 1, max: 500, group: 'autoscale', showIf: (p) => !!p.asEnabled },
+  { key: 'asMin', label: L('最少实例', 'Min instances'), kind: 'int', default: 2, min: 1, max: maxInst, group: 'autoscale', showIf: (p) => !!p.asEnabled },
+  { key: 'asMax', label: L('最多实例', 'Max instances'), kind: 'int', default: 20, min: 1, max: maxInst, group: 'autoscale', showIf: (p) => !!p.asEnabled },
   { key: 'asPeriod', label: L('决策周期', 'Sync period'), kind: 'seconds', default: 15, min: 1, max: 120, group: 'autoscale', showIf: (p) => !!p.asEnabled, help: L('K8s HPA 默认 15 秒', 'Kubernetes HPA default is 15 s') },
   { key: 'asColdStart', label: L('冷启动', 'Cold start'), kind: 'seconds', default: 30, min: 0, max: 600, group: 'autoscale', showIf: (p) => !!p.asEnabled, help: L('新实例创建到可以接流量的时间', 'Time from creating an instance until it can take traffic') },
   { key: 'asDownStab', label: L('缩容稳定窗口', 'Scale-down stabilization'), kind: 'seconds', default: 60, min: 0, max: 600, group: 'autoscale', showIf: (p) => !!p.asEnabled },
@@ -92,7 +93,7 @@ export const NODE_SPECS: Record<NodeType, NodeTypeSpec> = {
       { key: 'burstDur', label: L('突发持续', 'Burst duration'), kind: 'seconds', default: 10, min: 1, max: 300, group: 'traffic', showIf: (p) => p.pattern === 'burst' },
       { key: 'diurnalPeriod', label: L('周期长度', 'Period'), kind: 'seconds', default: 300, min: 30, max: 3600, group: 'traffic', showIf: (p) => p.pattern === 'diurnal', help: L('把一天压缩到这么长', 'One day compressed into this many seconds') },
       { key: 'diurnalTrough', label: L('低谷 / 高峰', 'Trough / peak'), kind: 'ratio', default: 0.3, min: 0, max: 1, step: 0.05, group: 'traffic', showIf: (p) => p.pattern === 'diurnal' },
-      { key: 'mix', label: L('请求路径组成', 'Request path mix'), kind: 'text', default: '/orders:0.3,/products:0.7', group: 'traffic', help: L('路径:权重，用逗号分隔。API Gateway 按路径前缀路由', 'path:weight, comma separated. The API Gateway routes by path prefix') },
+      { key: 'mix', label: L('请求路径组成', 'Request path mix'), kind: 'pathmix', default: '/orders:30,/products:70', group: 'traffic', help: L('每条路径占总流量的百分比，合计须为 100%。API Gateway 按路径前缀路由', 'Each path\u2019s share of the traffic; the shares must add up to 100%. The API Gateway routes by path prefix') },
       { key: 'sloAvail', label: L('可用性 SLO', 'Availability SLO'), kind: 'number', default: 0.999, min: 0.9, max: 0.99999, step: 0.0005, group: 'slo' },
       { key: 'sloPct', label: L('延迟 SLO 分位数', 'Latency SLO percentile'), kind: 'enum', default: 'p95', group: 'slo', options: [
         { value: 'p95', label: L('p95', 'p95') }, { value: 'p99', label: L('p99', 'p99') },
@@ -117,7 +118,7 @@ export const NODE_SPECS: Record<NodeType, NodeTypeSpec> = {
       { key: 'rlEnabled', label: L('限流', 'Rate limiting'), kind: 'bool', default: false, group: 'ratelimit' },
       { key: 'rlRps', label: L('限流速率', 'Rate limit'), kind: 'number', default: 1000, min: 1, max: 100000, step: 10, group: 'ratelimit', showIf: (p) => !!p.rlEnabled },
       { key: 'rlBurst', label: L('突发容量', 'Burst capacity'), kind: 'int', default: 200, min: 1, max: 100000, group: 'ratelimit', showIf: (p) => !!p.rlEnabled },
-      ...autoscale(0.6),
+      ...autoscale(0.6, 200),
     ],
     failures: [
       { kind: 'instanceDown', label: L('实例宕机', 'Instance crash'), help: L('部分实例崩溃，在途请求失败', 'Some instances crash; in-flight requests fail'), params: [{ key: 'count', label: L('数量', 'Count'), default: 1, min: 1, max: 100 }], defaultDuration: 60 },
@@ -145,7 +146,7 @@ export const NODE_SPECS: Record<NodeType, NodeTypeSpec> = {
     short: 'Service',
     blurb: L('无状态服务：线程池 + 本地计算 + 下游调用', 'Stateless service: thread pool, local work, downstream calls'),
     params: [
-      { key: 'instances', label: L('实例数', 'Instances'), kind: 'int', default: 3, min: 1, max: 500, group: 'capacity' },
+      { key: 'instances', label: L('实例数', 'Instances'), kind: 'int', default: 3, min: 1, max: 100, group: 'capacity' },
       { key: 'workers', label: L('每实例线程数', 'Threads per instance'), kind: 'int', default: 50, min: 1, max: 10000, group: 'capacity', help: L('同时处理的请求上限（线程池 / 并发上限）', 'Requests handled at once (thread pool / concurrency limit)') },
       { key: 'queueCap', label: L('每实例队列', 'Queue per instance'), kind: 'int', default: 100, min: 0, max: 100000, group: 'capacity', help: L('线程全忙时排队；队列满返回 503', 'Requests wait here when all threads are busy; 503 when full') },
       { key: 'queueTimeout', label: L('排队超时丢弃', 'Queue timeout (shed)'), kind: 'ms', default: 0, min: 0, max: 60000, group: 'capacity', help: L('排队超过此时间直接丢弃（load shedding），0 表示不启用', 'Drop requests that waited longer than this (load shedding). 0 disables it') },

@@ -409,6 +409,25 @@ p { margin: 0; }
 .num-unit { padding: 0 8px 0 0; color: var(--ink-3); font-size: 11.5px; }
 .text, .select { height: 30px; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 0 9px; background: var(--raised); width: 100%; }
 .text:focus, .select:focus { outline: none; border-color: var(--select); box-shadow: 0 0 0 3px var(--select-tint); }
+
+/* request path mix: path, share %, remove; add + total below */
+.pmix { display: grid; gap: 6px; }
+.pmix-head, .pmix-row { display: grid; grid-template-columns: minmax(0, 1fr) 92px 26px; gap: 6px; align-items: center; }
+.pmix-head { font-size: 11px; color: var(--ink-3); }
+.pmix-head span:nth-child(2) { text-align: right; padding-right: 22px; }
+.pmix-pct { width: 100%; }
+.pmix-pct input { width: 100%; min-width: 0; }
+.pmix-path.is-bad, .pmix-pct.is-bad { border-color: var(--crit); }
+.pmix-del { width: 26px; height: 26px; display: grid; place-items: center; padding: 0; border: 1px solid transparent; border-radius: var(--r-sm); background: none; color: var(--ink-3); cursor: pointer; }
+.pmix-del:hover:not(:disabled) { color: var(--crit); border-color: var(--line); background: var(--raised); }
+.pmix-del:disabled { opacity: 0.35; cursor: default; }
+.pmix-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+.pmix-add { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border: 1px dashed var(--line); border-radius: var(--r-sm); background: none; color: var(--ink-2); font-size: 12px; cursor: pointer; }
+.pmix-add:hover:not(:disabled) { border-style: solid; color: var(--select); border-color: var(--select); }
+.pmix-total { font-size: 12px; font-weight: 600; color: var(--ink-3); padding-right: 32px; }
+.pmix-total.is-ok { color: var(--ok); }
+.pmix-total.is-bad { color: var(--crit); }
+.pmix-err { font-size: 11.5px; color: var(--crit); line-height: 1.45; }
 .dist { display: flex; gap: 10px; }
 .dist label { display: grid; gap: 3px; font-size: 11px; color: var(--ink-3); }
 
@@ -434,6 +453,28 @@ p { margin: 0; }
 .fr-params { display: flex; flex-wrap: wrap; gap: 8px 12px; }
 .fr-params label { display: grid; gap: 3px; font-size: 11px; color: var(--ink-3); }
 .fr-params .num input { width: 54px; }
+/* fault preview: level over time, then the steady-state estimate */
+.fp { flex-basis: 100%; display: grid; gap: 8px; margin-top: 2px; }
+.fp-curve { width: 100%; height: auto; display: block; overflow: visible; }
+.fp-area { fill: color-mix(in srgb, var(--crit) 12%, transparent); }
+.fp-line { fill: none; stroke: var(--crit); stroke-width: 1.6; stroke-linejoin: round; }
+.fp-open { stroke: var(--crit); stroke-width: 1.6; stroke-dasharray: 2 3; }
+.fp-tick { stroke: var(--ink-3); stroke-width: 1; }
+.fp-t { font-size: 9.5px; fill: var(--ink-3); }
+.fp-lvl { fill: var(--crit); font-weight: 650; }
+.fp-est { display: grid; gap: 4px; }
+.fp-est-h { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; font-weight: 600; color: var(--ink-2); }
+.fp-est-note { font-weight: 400; color: var(--ink-3); border-bottom: 1px dotted var(--ink-3); cursor: help; }
+.fp-est table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.fp-est th { text-align: left; font-weight: 500; color: var(--ink); padding: 3px 6px 3px 0; }
+.fp-est th span { display: block; font-size: 10.5px; color: var(--ink-3); font-weight: 400; }
+.fp-est td { text-align: right; white-space: nowrap; color: var(--ink-2); padding: 3px 0 3px 8px; font-variant-numeric: tabular-nums; }
+.fp-est td b { font-weight: 650; color: var(--ink); }
+.fp-est tr + tr th, .fp-est tr + tr td { border-top: 1px solid var(--line-2); }
+.fp-est td b.is-warn { color: var(--warn); }
+.fp-est td b.is-bad { color: var(--crit); }
+.fp-direct { font-size: 11.5px; color: var(--ink-2); line-height: 1.45; }
+.fp-direct.fp-bad { color: var(--crit); }
 .fr-active { font-size: 12px; font-weight: 600; color: var(--crit); }
 
 .ins--overview .howto { margin: 0; padding: 16px 16px 0 34px; display: grid; gap: 10px; color: var(--ink-2); line-height: 1.55; }

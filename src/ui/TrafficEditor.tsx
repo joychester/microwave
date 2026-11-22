@@ -46,11 +46,13 @@ function seedFor(kind: ModelKind, level: number): Record<string, number> {
   }
 }
 
-function Preview({ prog, now, span }: { prog: TrafficProgram; now: number; span: number }) {
+// The curve covers exactly this run: from its start (t0, on the simulation clock, which keeps going
+// across runs) for the planned duration. The axis counts from 0:00 like the run clock in the top bar.
+function Preview({ prog, now, t0, span }: { prog: TrafficProgram; now: number; t0: number; span: number }) {
   const t = useT();
   const W = 300, H = 112, PL = 36, PB = 16, PT = 8;
-  const end = Math.max(span, now + 20);
-  const start = now > span ? Math.max(0, now - span * 0.5) : 0;
+  const start = t0;
+  const end = t0 + span;
   const win = end - start;
   const total = useMemo(() => {
     const out: { t: number; v: number }[] = [];
@@ -63,8 +65,10 @@ function Preview({ prog, now, span }: { prog: TrafficProgram; now: number; span:
   const y = (v: number) => H - PB - (v / max) * (H - PB - PT);
   const line = (pts: { t: number; v: number }[]) => pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
   const area = `${line(total)} L${x(end).toFixed(1)},${y(0)} L${x(start).toFixed(1)},${y(0)} Z`;
-  const nowV = evalProgram(prog, now);
-  const showNow = now >= start && now <= end;
+  // the clock can land a tick past the end when a run completes; pin "now" to the end then
+  const showNow = now >= start - 0.5 && now <= end + 2;
+  const nowT = Math.min(Math.max(now, start), end);
+  const nowV = evalProgram(prog, nowT);
   const hasOverlays = prog.overlays.length > 0;
   return (
     <figure className="tp">
@@ -79,13 +83,13 @@ function Preview({ prog, now, span }: { prog: TrafficProgram; now: number; span:
         <path d={area} className="tp-area" />
         {hasOverlays && <path d={line(base)} className="tp-baseline" />}
         <path d={line(total)} className="tp-line" />
-        <text x={PL} y={H - 3} className="tp-ax">{fmtClock(start * 1000)}</text>
-        <text x={W - 4} y={H - 3} className="tp-ax" textAnchor="end">{fmtClock(end * 1000)}</text>
+        <text x={PL} y={H - 3} className="tp-ax">{fmtClock(0)}</text>
+        <text x={W - 4} y={H - 3} className="tp-ax" textAnchor="end">{fmtClock(span * 1000)}</text>
         {showNow && (
           <g>
-            <line x1={x(now)} x2={x(now)} y1={PT - 2} y2={y(0)} className="tp-now" />
-            <circle cx={x(now)} cy={y(nowV)} r={3.6} className="tp-now-dot" />
-            <text x={Math.min(W - 40, x(now) + 5)} y={PT + 7} className="tp-now-label">{t('现在', 'now')} {fmtRate(nowV)}/s</text>
+            <line x1={x(nowT)} x2={x(nowT)} y1={PT - 2} y2={y(0)} className="tp-now" />
+            <circle cx={x(nowT)} cy={y(nowV)} r={3.6} className="tp-now-dot" />
+            <text x={x(nowT) > W - 70 ? x(nowT) - 5 : x(nowT) + 5} y={PT + 7} textAnchor={x(nowT) > W - 70 ? 'end' : 'start'} className="tp-now-label">{t('现在', 'now')} {fmtRate(nowV)}/s</text>
           </g>
         )}
       </svg>
@@ -114,6 +118,10 @@ export function TrafficEditor({ node, locked }: { node: NodeCfg; locked: boolean
   const update = useStore((s) => s.updateNodeParams);
   const simTime = useStore((s) => s.simTime);
   const duration = useRuns((r) => r.duration);
+  // the run in progress; between runs, the one that just finished (its "now" sits at the end), so a
+  // completed run reads as complete; before any run, the next one from 0:00
+  const runT0 = useRuns((r) => (r.acc ? r.acc.t0 : r.baseT > 0 && r.reports[0] ? r.baseT - r.reports[0].seconds : r.baseT));
+  const runSpan = useRuns((r) => (r.acc ? r.acc.duration : r.baseT > 0 && r.reports[0] ? r.reports[0].seconds : r.duration));
   const prog: TrafficProgram = isProgram(node.params.traffic) ? node.params.traffic : programFromLegacy(node.params);
   const now = simTime / 1000;
   const setProg = (p: TrafficProgram) => update(node.id, { traffic: p });
@@ -129,7 +137,7 @@ export function TrafficEditor({ node, locked }: { node: NodeCfg; locked: boolean
 
   return (
     <div className="te">
-      <Preview prog={prog} now={now} span={duration} />
+      <Preview prog={prog} now={now} t0={runT0} span={Math.max(1, runSpan || duration)} />
 
       <div className="te-h">{t('基础模型', 'Base model')}</div>
       <div className="tm-grid" role="radiogroup" aria-label={t('基础流量模型', 'Base traffic model')}>

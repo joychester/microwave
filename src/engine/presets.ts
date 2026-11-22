@@ -40,7 +40,7 @@ export function referenceTopology(lang: Lang = 'zh', opts: { payment?: boolean; 
   LANG = lang;
   const withPayment = opts.payment ?? true;
   const withPricing = opts.pricing ?? true;
-  const client = node('client', 'client', NAMES.traffic, 0, 280, { rps: 500, mix: '/orders:0.3,/products:0.7', sloAvail: 0.999, sloP99: 500 });
+  const client = node('client', 'client', NAMES.traffic, 0, 280, { rps: 500, mix: '/orders:30,/products:70', sloAvail: 0.999, sloP99: 500 });
   const gw = node('gw', 'gateway', NAMES.gw, 240, 280, { instances: 2 });
   const lbP = node('lb-product', 'lb', NAMES.lbP, 480, 150, { algorithm: 'round_robin' });
   const lbO = node('lb-order', 'lb', NAMES.lbO, 480, 410, { algorithm: 'p2c' });
@@ -87,12 +87,12 @@ export function referenceTopology(lang: Lang = 'zh', opts: { payment?: boolean; 
 
 export function blankTopology(lang: Lang = 'zh'): Topology {
   LANG = lang;
-  return { name: NAMES.blank[lang], nodes: [node('client', 'client', NAMES.traffic, 80, 240, { rps: 200, mix: '/:1' })], edges: [] };
+  return { name: NAMES.blank[lang], nodes: [node('client', 'client', NAMES.traffic, 80, 240, { rps: 200, mix: '/:100' })], edges: [] };
 }
 
 export function threeTierTopology(lang: Lang = 'zh'): Topology {
   LANG = lang;
-  const client = node('client', 'client', NAMES.traffic, 0, 200, { rps: 800, mix: '/:1' });
+  const client = node('client', 'client', NAMES.traffic, 0, 200, { rps: 800, mix: '/:100' });
   const lb = node('lb', 'lb', NAMES.lb, 260, 200, { algorithm: 'round_robin' });
   const api = node('api', 'service', NAMES.api, 520, 200, { instances: 4, workers: 30, serviceTime: ln(8, 50) });
   const db = node('db', 'database', NAMES.mysql, 800, 200, { workers: 12, readTime: ln(2, 25), writeTime: ln(4, 30) });
@@ -111,11 +111,11 @@ export function multiSourceTopology(lang: Lang = 'zh'): Topology {
   user.y = 150;
   user.params = { ...user.params, traffic: { base: defaultLayer('diurnal', { trough: 200, peak: 650, period: 240 }), overlays: [defaultLayer('noise', { pct: 8 })] } };
   const batch = node('batch', 'client', NAMES.batch, 0, 430, {
-    mix: '/orders:1',
+    mix: '/orders:100',
     traffic: { base: defaultLayer('step', { start: 20, stepBy: 40, every: 30, steps: 6 }), overlays: [] },
   });
   const push = node('push', 'client', NAMES.push, 0, -40, {
-    mix: '/products:1',
+    mix: '/products:100',
     traffic: { base: defaultLayer('constant', { rps: 40 }), overlays: [defaultLayer('spike', { at: 95, extra: 900, rise: 3, hold: 15, fall: 20 })] },
   });
   const gw = t.nodes.find((n) => n.id === 'gw')!;
@@ -127,7 +127,7 @@ export function multiSourceTopology(lang: Lang = 'zh'): Topology {
 
 export function canaryTopology(lang: Lang = 'zh'): Topology {
   LANG = lang;
-  const client = node('client', 'client', NAMES.traffic, 0, 220, { rps: 800, mix: '/:1' });
+  const client = node('client', 'client', NAMES.traffic, 0, 220, { rps: 800, mix: '/:100' });
   const gw = node('gw', 'gateway', NAMES.gw, 260, 220, { instances: 2 });
   const lb = node('lb', 'lb', NAMES.lb, 520, 220, { algorithm: 'least_conn' });
   const v1 = node('v1', 'service', NAMES.v1, 780, 90, { instances: 5, serviceTime: ln(10, 60) });
@@ -150,7 +150,7 @@ export function canaryTopology(lang: Lang = 'zh'): Topology {
 // eats your own thread pool.
 export function paymentTopology(lang: Lang = 'zh'): Topology {
   LANG = lang;
-  const client = node('client', 'client', NAMES.traffic, 0, 200, { rps: 300, mix: '/:1', sloAvail: 0.999, sloP99: 1500 });
+  const client = node('client', 'client', NAMES.traffic, 0, 200, { rps: 300, mix: '/:100', sloAvail: 0.999, sloP99: 1500 });
   const gw = node('gw', 'gateway', NAMES.gw, 260, 200, { instances: 2 });
   const checkout = node('checkout', 'service', NAMES.checkout, 520, 200, { instances: 3, workers: 60, serviceTime: ln(15, 80), cpuFraction: 0.35 });
   const pg = node('pg', 'database', NAMES.pg, 800, 60, { workers: 8, readTime: ln(2, 20), writeTime: ln(4, 30) });
