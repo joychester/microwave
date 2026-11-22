@@ -144,7 +144,7 @@ function RunClock({ lagging, achieved }: { lagging: boolean; achieved: number })
             </button>
           ))}
           {acc && acc.seconds > 1 && (
-            <button type="button" role="menuitem" className="menu-item menu-item--stop" onClick={() => { stopNow(); setOpen(false); }}>{t('立即结束并生成报告', 'Stop now and write the report')}</button>
+            <button type="button" role="menuitem" data-learn="stop-now" className="menu-item menu-item--stop" onClick={() => { stopNow(); setOpen(false); }}>{t('立即结束并生成报告', 'Stop now and write the report')}</button>
           )}
         </div>
       )}

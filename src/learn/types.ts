@@ -1,6 +1,7 @@
 // Learning mode: guided lessons. A lesson is a starting topology plus a list of steps.
 // Each step is checked against the live store, so the learner can do it any way they like.
 import type { FailureView, Selection } from '../ui/store';
+import type { RunReport } from '../ui/runs';
 import type { Lang, Snapshot, Text, Topology } from '../engine/types';
 
 /** Averages over a measured window of the run. */
@@ -33,6 +34,10 @@ export interface LessonCtx {
   /** Simulation speed (1, 2, 5, …) and run length in sim seconds, as set in the top bar. */
   speed: number;
   duration: number;
+  /** A run is in progress (started and not yet ended), paused or not. */
+  runActive: boolean;
+  /** The most recent run report, if any run has ended. */
+  report: RunReport | null;
   /** Measurements recorded by earlier steps, by key. */
   meas: Record<string, Measure>;
   /** Chosen option index of each prediction step, by step id. */

@@ -152,7 +152,8 @@ export function lessonCtx(): LessonCtx {
   return {
     lang: s.lang, topo: s.topology, selection: s.selection, running: s.running,
     now: s.latest?.t ?? 0, failures: s.failures, latest: s.latest, dockOpen: s.dockOpen, dockTab: s.dockTab,
-    speed: s.speed, duration: useRuns.getState().duration, meas: l.meas, answers: l.answers,
+    speed: s.speed, duration: useRuns.getState().duration, runActive: !!useRuns.getState().acc, report: useRuns.getState().reports[0] ?? null,
+    meas: l.meas, answers: l.answers,
   };
 }
 
@@ -238,7 +239,7 @@ function evaluate() {
 
 useStore.subscribe((s, prev) => {
   if (!useLearn.getState().active) return;
-  if (s.latest !== prev.latest || s.topology !== prev.topology || s.selection !== prev.selection || s.failures !== prev.failures || s.dockTab !== prev.dockTab || s.dockOpen !== prev.dockOpen || s.speed !== prev.speed) evaluate();
+  if (s.latest !== prev.latest || s.topology !== prev.topology || s.selection !== prev.selection || s.failures !== prev.failures || s.dockTab !== prev.dockTab || s.dockOpen !== prev.dockOpen || s.speed !== prev.speed || s.running !== prev.running) evaluate();
 });
 
 function restoreDuration() {
@@ -258,4 +259,4 @@ if (pending && Array.isArray(pending.nodes)) {
 if (!load(LS_WELCOME, false) && !pending) useLearn.setState({ welcome: true });
 
 // the run length lives in the runs store; a lesson step can ask for it (lesson 1)
-useRuns.subscribe((r, prev) => { if (r.duration !== prev.duration) evaluate(); });
+useRuns.subscribe((r, prev) => { if (r.duration !== prev.duration || r.reports !== prev.reports || !!r.acc !== !!prev.acc) evaluate(); });

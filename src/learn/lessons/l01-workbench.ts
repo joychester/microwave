@@ -31,7 +31,7 @@ export const lesson01: Lesson = {
   num: 1,
   title: L('认识工作台', 'Meet the workbench'),
   summary: L('搭一个最小系统，跑起来，读懂 QPS、可用性、平均延迟、p95 和 CPU。', 'Build the smallest system, run it, and read throughput, availability, average and p95 latency, and CPU.'),
-  minutes: 7,
+  minutes: 10,
   // starts at 1×: one of the first steps is switching to 5× yourself
   speed: 1,
   make: (lang) => blankTopology(lang),
@@ -116,6 +116,21 @@ export const lesson01: Lesson = {
       },
     },
     {
+      id: 'pause',
+      kind: 'do',
+      title: L('暂停下来读数', 'Pause to read'),
+      body: L(
+        '测量完成。点顶栏的"暂停"（就是刚才的"运行"按钮），让仿真停下来再慢慢读数。\n\n暂停时所有数字停在当前这一刻，运行时长也不再消耗。需要时再点"继续"，仿真从停下的地方接着跑。按空格键也可以暂停或继续。',
+        'The measurement is done. Press Pause in the top bar (the button that said Run) to stop the simulation while you read the numbers.\n\nWhile paused, every number stays where it is and the run length stops counting down. Press Resume when you need it again, and the simulation carries on from where it stopped. The space bar pauses and resumes, too.',
+      ),
+      highlight: (c) => (c.running ? '[data-learn="run"]' : null),
+      check: (c) => !c.running,
+      feedback: L(
+        '已暂停，按钮变成了"继续"。后面需要仿真跑起来的步骤，指引会再指向这个按钮。',
+        'Paused: the button now says Resume. When a later step needs the simulation running, the guide points at this button again.',
+      ),
+    },
+    {
       id: 'inspect',
       kind: 'do',
       title: L('看一个组件', 'Look at one component'),
@@ -149,8 +164,8 @@ export const lesson01: Lesson = {
       kind: 'do',
       title: L('改一个参数', 'Change one parameter'),
       body: L(
-        '在检查器的"容量"分组里，把"实例数"改成 1。保持运行，再观察 20 秒（如果运行已经到时停了，再点一次"运行"）。',
-        'In the Capacity group of the inspector, set Instances to 1. Keep it running and watch for another 20 seconds (if the run has reached its length and stopped, press Run again).',
+        '在检查器的"容量"分组里，把"实例数"改成 1。然后点顶栏的"继续"让仿真接着跑，观察 20 秒。',
+        'In the Capacity group of the inspector, set Instances to 1. Then press Resume in the top bar and watch for 20 seconds.',
       ),
       // after the instances, the Run button in case the run has reached its length and stopped
       highlight: (c) => (instances(c) !== 1 ? '.inspector [data-param="instances"]' : c.running ? null : '[data-learn="run"]'),
@@ -173,8 +188,8 @@ export const lesson01: Lesson = {
       kind: 'do',
       title: L('注入一个故障', 'Inject a fault'),
       body: L(
-        '先把实例数改回 3。然后在检查器底部的"故障注入"里找到"变慢"，把倍数改成 3，点"注入"。保持运行，观察 15 秒。',
-        'First set Instances back to 3. Then, under Fault injection at the bottom of the inspector, find Slowdown, set the multiplier to 3 and press Inject. Keep it running and watch for 15 seconds.',
+        '先把实例数改回 3。然后在检查器底部的"故障注入"里找到"变慢"，把倍数改成 3，点"注入"。保持运行，观察 15 秒（如果暂停了，点"继续"）。',
+        'First set Instances back to 3. Then, under Fault injection at the bottom of the inspector, find Slowdown, set the multiplier to 3 and press Inject. Keep it running and watch for 15 seconds (press Resume if it is paused).',
       ),
       highlight: (c) => (instances(c) < 3 ? '.inspector [data-param="instances"]' : !slowActive(c) ? '.inspector [data-fault="slow"]' : c.running ? null : '[data-learn="run"]'),
       check: (c) => instances(c) >= 3 && slowActive(c),
@@ -192,12 +207,54 @@ export const lesson01: Lesson = {
       },
     },
     {
+      id: 'stop',
+      kind: 'do',
+      title: L('结束这次运行', 'End the run'),
+      body: L(
+        '实验做完了，结束这次运行。\n\n运行可以等到设定的时长自动结束，也可以随时手动结束：点开顶栏的时钟，选"立即结束并生成报告"。两种方式都会生成一份运行报告。',
+        'The experiment is done; end this run.\n\nA run ends on its own when its length is up, or you can end it at any time: open the clock in the top bar and choose "Stop now and write the report". Either way you get a run report.',
+      ),
+      // the clock's menu item once the menu is open, otherwise the clock
+      highlight: (c) => (!c.runActive ? null : typeof document !== 'undefined' && document.querySelector('[data-learn="stop-now"]') ? '[data-learn="stop-now"]' : '[data-learn="clock"]'),
+      check: (c) => !c.runActive && !!c.report,
+      feedback: (c) => {
+        const r = c.report;
+        const early = !!r && r.seconds < r.duration - 1;
+        return early
+          ? L('运行已结束，报告已经生成，底部的"报告"标签自动打开了。', 'The run has ended and its report is ready; the Report tab at the bottom opened by itself.')
+          : L('这次运行已经到时自动结束，报告早就生成好了。', 'This run already reached its length and ended on its own, so its report is ready.');
+      },
+    },
+    {
+      id: 'report',
+      kind: 'do',
+      title: L('读运行报告', 'Read the run report'),
+      body: L(
+        '运行报告在底部的"报告"标签里（结束运行时会自动打开）。如果没看到，点一下"报告"标签。',
+        'The run report is in the Report tab at the bottom (it opens when a run ends). If you don\'t see it, click the Report tab.',
+      ),
+      highlight: (c) => (c.dockOpen && c.dockTab === 'report' ? null : '[data-learn="dock-report"]'),
+      check: (c) => c.dockOpen && c.dockTab === 'report' && !!c.report,
+      feedback: (c) => {
+        const r = c.report;
+        if (!r) return L('', '');
+        const mins = Math.floor(r.seconds / 60), secs = Math.round(r.seconds % 60);
+        const durZh = mins ? `${mins} 分 ${secs} 秒` : `${secs} 秒`;
+        const durEn = mins ? `${mins} min ${secs} s` : `${secs} s`;
+        const slo = Math.round(r.sloSeconds);
+        return {
+          zh: `这次运行跑了 ${durZh}，可用性 ${fmtAvail(r.avail)}，平均延迟 ${fmtLatency(r.latAvg)}，${r.pct} ${fmtLatency(r.pctAll)}，其中 ${slo} 秒达到了 SLO。\n\n报告和顶栏的区别：顶栏是最近 5 秒，报告统计的是整次运行的所有请求。${r.editedMidRun ? '\n\n报告里有一条"注意：运行中改过参数"。你在这次运行里改过实例数，所以这份结果是几种配置混在一起的。做实验时，一次运行只改一个变量，结果才好对比。' : ''}\n\n往下看，"组件"表列出每个组件的峰值利用率和失败数，"失败原因"说明请求为什么失败。同一个拓扑再跑一次，就能在报告顶部选择和这一次对比，报告会列出两次之间改了哪些配置。报告还可以复制或导出成 Markdown，贴到文档里。`,
+          en: `This run lasted ${durEn}: availability ${fmtAvail(r.avail)}, average latency ${fmtLatency(r.latAvg)}, ${r.pct} ${fmtLatency(r.pctAll)}, and ${slo} seconds met the SLO.\n\nThe report differs from the top bar: the top bar shows the last 5 seconds, the report covers every request in the whole run.${r.editedMidRun ? '\n\nThe report carries a note: "parameters were edited during this run". You changed the instances during this run, so the result mixes several setups. When you experiment, change one thing per run so the results are easy to compare.' : ''}\n\nFurther down, the Components table lists each component\'s peak utilization and failures, and Failure causes explain why requests failed. Run the same topology again and you can compare it with this run at the top of the report, including what configuration changed between the two. You can also copy or export the report as Markdown to paste into a document.`,
+        };
+      },
+    },
+    {
       id: 'done',
       kind: 'read',
       title: L('小结', 'Wrap-up'),
       body: L(
-        '你已经会搭系统、运行、读指标、改参数和注入故障了。记住三点：\n\n• 看系统要同时看流量、错误、延迟分位数和利用率，只看一个会被误导。\n• 平均延迟会藏起慢请求，SLO 要看 p95 或 p99。\n• 实例减到 1 个时，CPU 只升了 3 倍，延迟却涨了好几倍。这就是第 2 课的主题：排队与利用率。',
-        'You can now build a system, run it, read the metrics, change parameters and inject faults. Three things to remember:\n\n• Look at traffic, errors, latency percentiles and utilization together; any one alone can mislead you.\n• Averages hide slow requests; set SLOs on p95 or p99.\n• With one instance, CPU only tripled but latency grew several times over. That is the subject of lesson 2: queueing and utilization.',
+        '你已经会搭系统、设置运行、读指标、改参数、注入故障和看报告了。记住三点：\n\n• 看系统要同时看流量、错误、延迟分位数和利用率，只看一个会被误导。\n• 平均延迟会藏起慢请求，SLO 要看 p95 或 p99。\n• 实例减到 1 个时，CPU 只升了 3 倍，延迟却涨了好几倍。这就是第 2 课的主题：排队与利用率。',
+        'You can now build a system, set up and run it, read the metrics, change parameters, inject faults and read the report. Three things to remember:\n\n• Look at traffic, errors, latency percentiles and utilization together; any one alone can mislead you.\n• Averages hide slow requests; set SLOs on p95 or p99.\n• With one instance, CPU only tripled but latency grew several times over. That is the subject of lesson 2: queueing and utilization.',
       ),
     },
   ],

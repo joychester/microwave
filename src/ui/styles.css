@@ -896,6 +896,8 @@ fieldset.pf:disabled * { cursor: not-allowed; }
 .rp-diff-added .rp-diff-tag { color: var(--ok); }
 .rp-diff-removed .rp-diff-tag { color: var(--crit); }
 .rp-diff-note { margin: 6px 0 0; font-size: 12px; color: var(--ink-3); }
+/* a single run whose parameters changed part-way: its numbers mix setups */
+.rp-mid-note { margin: 0 0 10px; padding: 6px 10px; font-size: 12px; color: var(--ink-2); background: color-mix(in srgb, var(--warn) 12%, transparent); border-left: 3px solid var(--warn); border-radius: var(--r-sm); }
 .rp-actions { display: flex; gap: 6px; flex: none; }
 .rp-body { overflow: auto; padding: 10px 14px 14px; display: grid; gap: 12px; align-content: start; }
 .rp-tiles { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }

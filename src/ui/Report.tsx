@@ -244,6 +244,12 @@ export function ReportPanel() {
             )}
           </section>
         )}
+        {!p && r.editedMidRun && (
+          <p className="rp-mid-note" role="note">{t(
+            '注意：运行中改过参数。这份结果是改动前后几种配置混在一起的；要比较配置，每次运行只改一处。',
+            'Note: parameters were edited during this run. These results mix the setups before and after the edit; to compare setups, change one thing per run.',
+          )}</p>
+        )}
         <dl className="rp-tiles">
           {tiles.map((x) => (
             <div key={x.k} className={`rp-tile${x.tone ? ` rp-tile--${x.tone}` : ''}`}>
