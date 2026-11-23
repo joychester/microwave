@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 import type { FailureKindSpec } from '../engine/specs';
 import type { NodeCfg } from '../engine/types';
 import { estimateImpact, faultLevel } from './faultImpact';
@@ -11,12 +11,19 @@ import { useStore } from './store';
 
 const W = 260, H = 64, TOP = 16, BASE = 50;
 
-function FaultCurve({ kind, vals, dur, rec }: { kind: string; vals: Record<string, number>; dur: number; rec: number }) {
+/**
+ * The fault's level over time. With `now` (seconds since injection) it shows progress: the elapsed
+ * part filled darker, a line at the current moment, and elapsed / remaining time.
+ */
+export function FaultCurve({ kind, vals, dur, rec, now }: { kind: string; vals: Record<string, number>; dur: number; rec: number; now?: number }) {
   const t = useT();
   const lang = useLang();
+  const clipId = useId();
   const open = dur <= 0;
-  // time shown: a bit of normal before the fault, the fault, its recovery, a bit of normal after
-  const span = open ? 60 : dur + rec;
+  const live = now !== undefined;
+  // time shown: a bit of normal before the fault, the fault, its recovery, a bit of normal after;
+  // a fault that stays on keeps stretching the axis so the current moment keeps moving
+  const span = open ? Math.max(60, live ? now! * 1.25 : 0) : dur + rec;
   const pre = span * 0.26, post = open ? 0 : span * 0.1;
   const total = pre + span + post;
   const x = (s: number) => 8 + ((s + pre) / total) * (W - 16);
@@ -27,16 +34,41 @@ function FaultCurve({ kind, vals, dur, rec }: { kind: string; vals: Record<strin
     : `M8 ${BASE} H${x0} V${TOP} H${x1} L${x2} ${BASE} H${W - 8}`;
   const area = open ? `M${x0} ${BASE} V${TOP} H${W - 8} V${BASE} Z` : `M${x0} ${BASE} V${TOP} H${x1} L${x2} ${BASE} Z`;
   const secs = (s: number) => `${+s.toFixed(1)}s`;
+  // the current moment, held to the drawn range
+  const tNow = live ? Math.min(Math.max(0, now!), open ? span : dur + rec) : 0;
+  const xNow = x(tNow);
+  const yNow = !live ? BASE : open || tNow <= dur ? TOP : rec > 0 ? TOP + ((BASE - TOP) * Math.min(1, (tNow - dur) / rec)) : BASE;
+  // elapsed only: the time left is already counted down under the curve
+  const whole = `${Math.max(0, Math.floor(tNow))}s`;
+  const nowLabel = !live ? '' : open
+    ? t(`已持续 ${whole}`, `${whole} so far`)
+    : tNow < dur
+      ? t(`已过 ${whole}`, `${whole} in`)
+      : t('恢复中', 'recovering');
   return (
     <svg className="fp-curve" viewBox={`0 0 ${W} ${H + 14}`} role="img"
       aria-label={open
         ? t(`注入后一直生效${level ? `（${level.zh}）` : ''}，直到手动结束`, `From injection${level ? ` (${level.en})` : ''} until you end it`)
         : t(`注入后生效 ${dur} 秒${level ? `（${level.zh}）` : ''}${rec ? `，再用 ${rec} 秒逐步恢复` : ''}`, `Active for ${dur} s after injection${level ? ` (${level.en})` : ''}${rec ? `, then recovers over ${rec} s` : ''}`)}>
       <path d={area} className="fp-area" />
+      {live && (
+        <>
+          <clipPath id={clipId}><rect x={0} y={0} width={Math.max(0, xNow - 0)} height={H} /></clipPath>
+          <path d={area} className="fp-area-done" clipPath={`url(#${clipId})`} />
+        </>
+      )}
       <path d={d} className="fp-line" />
       {open && <path d={`M${W - 22} ${TOP} H${W - 8}`} className="fp-open" />}
       <text x={10} y={BASE - 5} className="fp-t">{t('正常', 'Normal')}</text>
-      {level && <text x={x0 + 5} y={TOP - 4} className="fp-t fp-lvl">{level[lang]}</text>}
+      {/* while live the level sits inside the shape, leaving the top for the time label */}
+      {level && <text x={x0 + 5} y={live ? TOP + 12 : TOP - 4} className="fp-t fp-lvl">{level[lang]}</text>}
+      {live && (
+        <>
+          <line x1={xNow} x2={xNow} y1={TOP - 3} y2={BASE + 4} className="fp-now" />
+          <circle cx={xNow} cy={yNow} r={3.2} className="fp-now-dot" />
+          <text x={xNow} y={TOP - 6} className="fp-t fp-now-t" textAnchor={xNow > W * 0.7 ? 'end' : xNow < W * 0.3 ? 'start' : 'middle'}>{nowLabel}</text>
+        </>
+      )}
       <line x1={x0} x2={x0} y1={BASE} y2={BASE + 4} className="fp-tick" />
       {/* a short fault puts its length next to "Inject" instead of under its own tick */}
       <text x={x0} y={H + 10} className="fp-t" textAnchor="middle">{!open && x1 - x0 < 36 ? t(`注入，持续 ${secs(dur)}`, `Inject, ${secs(dur)}`) : t('注入', 'Inject')}</text>

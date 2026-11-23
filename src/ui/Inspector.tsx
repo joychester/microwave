@@ -5,7 +5,7 @@ import type { EdgeCfg, NodeCfg, Params } from '../engine/types';
 import { useStore } from './store';
 import { Glyph } from './Glyph';
 import { ParamField, NumberInput } from './ParamField';
-import { FaultPreview } from './FaultPreview';
+import { FaultCurve, FaultPreview } from './FaultPreview';
 import { TimeChart } from './TimeChart';
 import { useSeries } from './theme';
 import { useLang, useT } from './i18n';
@@ -220,7 +220,11 @@ function FailureRow({ node, spec }: { node: NodeCfg; spec: FailureKindSpec }) {
   const showToast = useStore((s) => s.showToast);
   const simTime = useStore((s) => s.simTime);
   const failures = useStore((s) => s.failures);
-  const active = failures.filter((f) => f.nodeId === node.id && f.kind === spec.kind && (f.end < 0 || f.end > simTime));
+  const mine = failures.filter((f) => f.nodeId === node.id && f.kind === spec.kind);
+  const active = mine.filter((f) => f.end < 0 || f.end > simTime);
+  // ended, but still easing back to normal (e.g. a cache warming up again)
+  const recovering = mine.filter((f) => f.end >= 0 && f.end <= simTime && simTime < f.end + f.recovery_s * 1000);
+  const shown = active[0] ?? recovering[0];
   const [vals, setVals] = useState<Record<string, number>>(() => Object.fromEntries(spec.params.map((p) => [p.key, p.default])));
   const [dur, setDur] = useState(spec.defaultDuration);
   const [rec, setRec] = useState(spec.defaultRecovery ?? 0);
@@ -241,10 +245,14 @@ function FailureRow({ node, spec }: { node: NodeCfg; spec: FailureKindSpec }) {
           }}>{t('注入', 'Inject')}</button>
         )}
       </div>
-      {active.length > 0 ? (
+      {shown ? (
+        <>
+        {/* the fault's level over time, with how far along it is (ended early → drawn as it actually ran) */}
+        <FaultCurve kind={spec.kind} vals={shown.params} dur={shown.end < 0 ? 0 : (shown.end - shown.start) / 1000} rec={spec.defaultRecovery !== undefined ? shown.recovery_s : 0} now={(simTime - shown.start) / 1000} />
         <p className="fr-active">
-          {active.map((a) => (a.end < 0 ? t('进行中，需手动结束', 'Active until you end it') : t(`还剩 ${Math.max(0, Math.ceil((a.end - simTime) / 1000))}s`, `${Math.max(0, Math.ceil((a.end - simTime) / 1000))}s left`))).join(lang === 'en' ? '; ' : '；')}
+          {active.length === 0 ? t(`恢复中，还剩 ${Math.max(0, Math.ceil((shown.end + shown.recovery_s * 1000 - simTime) / 1000))}s`, `Recovering, ${Math.max(0, Math.ceil((shown.end + shown.recovery_s * 1000 - simTime) / 1000))}s left`) : active.map((a) => (a.end < 0 ? t('进行中，需手动结束', 'Active until you end it') : t(`还剩 ${Math.max(0, Math.ceil((a.end - simTime) / 1000))}s`, `${Math.max(0, Math.ceil((a.end - simTime) / 1000))}s left`))).join(lang === 'en' ? '; ' : '；')}
         </p>
+        </>
       ) : (
         <div className="fr-params">
           {spec.params.map((p) => (

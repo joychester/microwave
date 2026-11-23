@@ -462,6 +462,11 @@ p { margin: 0; }
 .fp-tick { stroke: var(--ink-3); stroke-width: 1; }
 .fp-t { font-size: 9.5px; fill: var(--ink-3); }
 .fp-lvl { fill: var(--crit); font-weight: 650; }
+/* live progress on an active fault */
+.fp-area-done { fill: color-mix(in srgb, var(--crit) 32%, transparent); }
+.fp-now { stroke: var(--ink); stroke-width: 1.2; stroke-dasharray: 2 2; }
+.fp-now-dot { fill: var(--paper); stroke: var(--crit); stroke-width: 1.8; }
+.fp-now-t { fill: var(--ink-2); font-weight: 600; }
 .fp-est { display: grid; gap: 4px; }
 .fp-est-h { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; font-weight: 600; color: var(--ink-2); }
 .fp-est-note { font-weight: 400; color: var(--ink-3); border-bottom: 1px dotted var(--ink-3); cursor: help; }
