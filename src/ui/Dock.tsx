@@ -240,8 +240,8 @@ function Events() {
   const events = useStore((s) => s.events);
   const select = useStore((s) => s.select);
   const list = events.slice().reverse();
-  if (list.length === 0) return <p className="empty-note">{t('熔断、扩缩容、故障注入、连接数超限等事件会出现在这里。', 'Circuit breakers, autoscaling, injected faults and connection-limit hits show up here.')}</p>;
-  const levelLabel = (l: string) => (l === 'crit' ? t('严重', 'Critical') : l === 'warn' ? t('注意', 'Warning') : t('信息', 'Info'));
+  if (list.length === 0) return <p className="empty-note">{t('熔断、扩缩容、故障注入、连接数超限，以及运行中你改的配置，都会出现在这里。', 'Circuit breakers, autoscaling, injected faults, connection-limit hits and your own edits during a run show up here.')}</p>;
+  const levelLabel = (l: string) => (l === 'change' ? t('变更', 'Change') : l === 'crit' ? t('严重', 'Critical') : l === 'warn' ? t('注意', 'Warning') : t('信息', 'Info'));
   return (
     <ol className="events">
       {list.map((e, i) => (

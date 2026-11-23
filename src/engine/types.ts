@@ -122,11 +122,12 @@ export interface Snapshot {
 
 export type EventCode =
   | 'fault_start' | 'fault_end' | 'restart' | 'rebalance' | 'conn_limit'
-  | 'cb_open' | 'cb_half' | 'cb_close' | 'scale_up' | 'scale_down' | 'game';
+  | 'cb_open' | 'cb_half' | 'cb_close' | 'scale_up' | 'scale_down' | 'game'
+  | 'config'; // your own edit during a run (logged by the UI, never by the engine)
 
 export interface SimEvent {
   t: number; // sim seconds
-  level: 'info' | 'warn' | 'crit';
+  level: 'info' | 'warn' | 'crit' | 'change';
   code?: EventCode;
   nodeId?: string;
   edgeId?: string;
