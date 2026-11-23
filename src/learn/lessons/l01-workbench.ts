@@ -56,15 +56,15 @@ export const lesson01: Lesson = {
       kind: 'do',
       title: L('设置运行时长', 'Set the run length'),
       body: L(
-        '运行之前，先认识顶栏的两个设置。\n\n顶栏中间的时钟显示"已运行 / 运行时长"。运行时长决定一次测试跑多久（按仿真时间算）：时间一到会自动停止，并在底部生成一份运行报告。课程开始时默认是 30 分钟。点一下时钟，把运行时长改成 5 分钟，用来观察结果已经足够。\n\n如果课程做到一半，运行到时自动停了，再点"运行"就会开始下一次运行，课程可以接着做。',
-        'Before running, get to know two settings in the top bar.\n\nThe clock in the middle shows "elapsed / run length". The run length is how long one test runs, in simulated time: when it is up the run stops on its own and writes a run report at the bottom. Lessons start with 30 minutes. Click the clock and set the run length to 5 minutes, which is plenty to see the results.\n\nIf a run stops on time halfway through the lesson, press Run again: a new run starts and the lesson carries on.',
+        '运行之前，先认识顶栏的两个设置。\n\n顶栏中间的时钟显示"已运行 / 运行时长"。运行时长决定一次测试跑多久（按仿真时间算）：时间一到会自动停止，并在底部生成一份运行报告。课程开始时默认是 30 分钟。点一下时钟，把运行时长改成 10 分钟，用来观察结果已经足够。\n\n如果课程做到一半，运行到时自动停了，再点"运行"就会开始下一次运行，课程可以接着做。',
+        'Before running, get to know two settings in the top bar.\n\nThe clock in the middle shows "elapsed / run length". The run length is how long one test runs, in simulated time: when it is up the run stops on its own and writes a run report at the bottom. Lessons start with 30 minutes. Click the clock and set the run length to 10 minutes, which is plenty to see the results.\n\nIf a run stops on time halfway through the lesson, press Run again: a new run starts and the lesson carries on.',
       ),
       // the clock's menu, once it is open; otherwise the clock itself
-      highlight: (c) => (c.duration === 300 ? null : typeof document !== 'undefined' && document.querySelector('[data-learn="dur-300"]') ? '[data-learn="dur-300"]' : '[data-learn="clock"]'),
-      check: (c) => c.duration === 300,
+      highlight: (c) => (c.duration === 600 ? null : typeof document !== 'undefined' && document.querySelector('[data-learn="dur-600"]') ? '[data-learn="dur-600"]' : '[data-learn="clock"]'),
+      check: (c) => c.duration === 600,
       feedback: L(
-        '运行时长改成 5 分钟了，时钟会显示"已运行 / 5:00"。',
-        'The run length is now 5 minutes; the clock shows "elapsed / 5:00".',
+        '运行时长改成 10 分钟了，时钟会显示"已运行 / 10:00"。',
+        'The run length is now 10 minutes; the clock shows "elapsed / 10:00".',
       ),
     },
     {
@@ -72,8 +72,8 @@ export const lesson01: Lesson = {
       kind: 'do',
       title: L('设置仿真速度', 'Set the simulation speed'),
       body: L(
-        '时钟左边的 1× 2× 5× 10× 20× 是仿真速度：真实的 1 秒里，仿真走几秒。1× 和真实时间一样快；5× 时，5 分钟的测试真实只要 1 分钟。\n\n速度只影响你要等多久，不影响结果：同样的配置，用 1× 和 5× 跑出来的指标基本一样。速度太快时浏览器可能跟不上，时钟旁会显示实际达到的倍数。\n\n现在是 1×。把它改成 5×，更快看到运行状态和结果。',
-        'The 1× 2× 5× 10× 20× buttons left of the clock set the simulation speed: how many simulated seconds pass in one real second. 1× runs in real time; at 5×, a 5-minute test takes 1 real minute.\n\nSpeed only changes how long you wait, not the results: the same setup gives essentially the same numbers at 1× and at 5×. If the speed is too high for the browser, the clock shows the speed it actually reached.\n\nIt is at 1× now. Switch to 5× to see the run and its results sooner.',
+        '时钟左边的 1× 2× 5× 10× 20× 是仿真速度：真实的 1 秒里，仿真走几秒。1× 和真实时间一样快；5× 时，10 分钟的测试真实只要 2 分钟。\n\n速度只影响你要等多久，不影响结果：同样的配置，用 1× 和 5× 跑出来的指标基本一样。速度太快时浏览器可能跟不上，时钟旁会显示实际达到的倍数。\n\n现在是 1×。把它改成 5×，更快看到运行状态和结果。',
+        'The 1× 2× 5× 10× 20× buttons left of the clock set the simulation speed: how many simulated seconds pass in one real second. 1× runs in real time; at 5×, a 10-minute test takes 2 real minutes.\n\nSpeed only changes how long you wait, not the results: the same setup gives essentially the same numbers at 1× and at 5×. If the speed is too high for the browser, the clock shows the speed it actually reached.\n\nIt is at 1× now. Switch to 5× to see the run and its results sooner.',
       ),
       highlight: (c) => (c.speed === 5 ? null : '[data-learn="speed-5"]'),
       check: (c) => c.speed === 5,
