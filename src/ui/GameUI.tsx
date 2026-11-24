@@ -5,7 +5,6 @@ import { useStore } from './store';
 import { isUnlocked, levelById, useGame } from './game';
 import { useLang, useT } from './i18n';
 import { fmtAvail, fmtClock, fmtCount, fmtLatency, fmtPct } from './format';
-import { play } from './sound';
 
 // ---------------------------------------------------------------- bits
 export function Stars({ n, size = 18, animate = false }: { n: number; size?: number; animate?: boolean }) {
@@ -60,7 +59,7 @@ export function LevelGrid({ onPick }: { onPick: (id: string) => void }) {
         const p = progress[lv.id];
         return (
           <li key={lv.id}>
-            <button type="button" className={`lv${unlocked ? '' : ' is-locked'}${p?.stars ? ' is-done' : ''}`} disabled={!unlocked} onClick={() => { play('click'); onPick(lv.id); }}>
+            <button type="button" className={`lv${unlocked ? '' : ' is-locked'}${p?.stars ? ' is-done' : ''}`} disabled={!unlocked} onClick={() => onPick(lv.id)}>
               <span className="lv-num">{lv.num}</span>
               <span className="lv-title">{lv.title[lang]}</span>
               <span className="lv-diff" aria-label={t(`难度 ${lv.difficulty}`, `Difficulty ${lv.difficulty}`)}>
@@ -115,7 +114,7 @@ export function Brief() {
         {tips && <ol className="brief-tips">{level.tips.map((tp, i) => <li key={i}>{tp[lang]}</li>)}</ol>}
         <div className="gm-actions">
           <button type="button" className="btn btn--ghost" onClick={showSelect}>{t('返回选关', 'All levels')}</button>
-          <button type="button" className="btn btn--go" onClick={() => { play('click'); startDeploy(true); }}>{t('开始部署', 'Start deploying')}</button>
+          <button type="button" className="btn btn--go" onClick={() => startDeploy(true)}>{t('开始部署', 'Start deploying')}</button>
         </div>
       </div>
     </div>

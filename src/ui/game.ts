@@ -5,7 +5,6 @@ import type { Topology } from '../engine/types';
 import { LEVELS, planFaults, trafficAt, type Level, type LevelFault } from '../game/levels';
 import { finalize, initRun, stepRun, type RunResult, type RunState } from '../game/rules';
 import { useStore } from './store';
-import { play, setSoundEnabled } from './sound';
 
 export type Phase = 'select' | 'brief' | 'deploy' | 'countdown' | 'playing' | 'over';
 
@@ -21,7 +20,6 @@ interface GameState {
   countdown: number;
   progress: Record<string, Progress>;
   costNow: number;
-  sound: boolean;
   backup: Topology | null;
   newBest: boolean;
 
@@ -31,11 +29,9 @@ interface GameState {
   openLevel: (id: string) => void;
   startDeploy: (fresh?: boolean) => void;
   startPlay: () => void;
-  toggleSound: () => void;
 }
 
 const LS_PROGRESS = 'simbench.progress.v1';
-const LS_SOUND = 'simbench.sound.v1';
 function load<T>(k: string, d: T): T {
   try { const r = localStorage.getItem(k); return r ? (JSON.parse(r) as T) : d; } catch { return d; }
 }
@@ -65,7 +61,6 @@ export const useGame = create<GameState>((set, get) => ({
   countdown: 0,
   progress: load(LS_PROGRESS, {}),
   costNow: 0,
-  sound: load(LS_SOUND, false),
   backup: null,
   newBest: false,
 
@@ -108,14 +103,12 @@ export const useGame = create<GameState>((set, get) => ({
     if (!level) return;
     if (!useStore.getState().canRun()) return;
     set({ phase: 'countdown', countdown: 3 });
-    play('tick');
     if (countdownTimer) clearInterval(countdownTimer);
     countdownTimer = setInterval(() => {
       const c = get().countdown - 1;
-      if (c > 0) { set({ countdown: c }); play('tick'); return; }
+      if (c > 0) { set({ countdown: c }); return; }
       clearInterval(countdownTimer!);
       countdownTimer = null;
-      play('go');
       const st = useStore.getState();
       if (st.speed > 2) st.setSpeed(2);
       const client = st.topology.nodes.find((n) => n.type === 'client');
@@ -130,16 +123,7 @@ export const useGame = create<GameState>((set, get) => ({
       }, 120);
     }, 800);
   },
-  toggleSound: () => {
-    const on = !get().sound;
-    setSoundEnabled(on);
-    save(LS_SOUND, on);
-    set({ sound: on });
-    if (on) play('click');
-  },
 }));
-
-setSoundEnabled(useGame.getState().sound);
 
 // ---------------------------------------------------------------- per-second game tick
 useStore.subscribe((s, prev) => {
@@ -174,26 +158,7 @@ useStore.subscribe((s, prev) => {
     if (result.won) progress[level.id] = { stars: Math.max(prevBest?.stars ?? 0, result.stars), best: Math.max(prevBest?.best ?? 0, result.score) };
     save(LS_PROGRESS, progress);
     useGame.setState({ run, result, phase: 'over', progress, newBest: result.won && newBest });
-    play(result.won ? 'win' : 'lose');
     return;
   }
   useGame.setState({ run });
-});
-
-// ---------------------------------------------------------------- sound hooks for engine events
-useStore.subscribe((s, prev) => {
-  if (s.events === prev.events || s.events.length === 0) return;
-  const lastPrev = prev.events[prev.events.length - 1];
-  const idx = lastPrev ? s.events.lastIndexOf(lastPrev) : -1;
-  const fresh = s.events.slice(idx + 1);
-  for (const e of fresh) {
-    switch (e.code) {
-      case 'fault_start': play('alarm'); break;
-      case 'cb_open': play('breaker'); break;
-      case 'scale_up': play('scaleUp'); break;
-      case 'scale_down': play('scaleDown'); break;
-      case 'conn_limit': play('warn'); break;
-      case 'fault_end': play('recover'); break;
-    }
-  }
 });

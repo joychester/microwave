@@ -239,7 +239,6 @@ src/ui/              React UI: React Flow canvas, inspector, uPlot charts, capac
   theme.ts           light and dark chart palettes (checked for color blindness and contrast)
   NodeShape.tsx      a distinct outline per component (browser window, arch, router, replicas, memory stick, cylinder, pipe, dashed cloud)
   game.ts / GameUI.tsx  challenge mode: level select, briefing, HUD, countdown, results
-  sound.ts           WebAudio synthesized sound effects (off by default)
   TrafficEditor.tsx  traffic model editor (model cards, curve preview)
   runs.ts / Report.tsx  timed runs and run reports
   CalibrateDialog.tsx   calibrate from production metrics: CSV input, preview, verification

@@ -231,7 +231,6 @@ src/ui/              React 界面：React Flow 画布、属性面板、uPlot 图
   theme.ts           浅色 / 深色的图表配色（均经过色盲与对比度校验）
   NodeShape.tsx      每种组件的专属轮廓（浏览器窗口、拱门、路由器、多副本、内存条、圆柱、管道、虚线云）
   game.ts / GameUI.tsx  挑战模式：选关、简报、HUD、倒计时、结算
-  sound.ts           WebAudio 合成音效（默认关闭）
   TrafficEditor.tsx  流量模型编辑器（图形卡片、曲线预览）
   runs.ts / Report.tsx  定时运行与运行报告
   CalibrateDialog.tsx   用生产指标校准：CSV 输入、预览、验证

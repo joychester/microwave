@@ -9,7 +9,6 @@ import { LevelGrid, Stars, totalStars } from './GameUI';
 import { lessonCtx, useLearn } from './learn';
 import { useLang, useT } from './i18n';
 import { fmtLatency, fmtPct } from './format';
-import { play } from './sound';
 
 /** Paragraphs separated by blank lines; lines starting with "•" become a list. */
 function Prose({ text }: { text: string }) {
@@ -85,7 +84,7 @@ export function LearnHub() {
                       <p className="ls-sum">{l.summary[lang]}</p>
                     </div>
                     <span className="ls-min">{t(`约 ${l.minutes} 分钟`, `${l.minutes} min`)}</span>
-                    <button type="button" className="btn btn--primary" onClick={() => { play('click'); start(l.id); }}>
+                    <button type="button" className="btn btn--primary" onClick={() => start(l.id)}>
                       {here ? t('重新开始', 'Start over') : isDone ? t('再学一次', 'Do it again') : t('开始', 'Start')}
                     </button>
                   </li>
@@ -269,7 +268,7 @@ export function LessonGuide() {
             <button type="button" className="btn btn--ghost" onClick={() => l.exit(false)}>{t('退出并恢复工作台', 'Leave and restore my workbench')}</button>
           </>
         ) : step.kind === 'read' || (step.kind === 'do' && l.stepDone) ? (
-          <button type="button" className="btn btn--primary" onClick={() => { play('click'); l.next(); }}>{t('下一步', 'Next')}</button>
+          <button type="button" className="btn btn--primary" onClick={() => l.next()}>{t('下一步', 'Next')}</button>
         ) : step.kind === 'do' ? (
           <button type="button" className="link" onClick={l.skip}>{t('跳过这一步', 'Skip this step')}</button>
         ) : null}

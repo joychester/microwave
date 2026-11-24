@@ -15,7 +15,6 @@ import { create } from 'zustand';
 import type { Snapshot, Topology } from '../engine/types';
 import { useStore } from './store';
 import { useGame } from './game';
-import { play } from './sound';
 import { useRuns } from './runs';
 
 export type Criterion = 'util' | 'slo';
@@ -196,7 +195,6 @@ function finish(note?: LimitResult['note'], hold?: { w: Window; topo: Topology }
   st.showToast(st.lang === 'en'
     ? (note === 'stopped' ? 'Limit search stopped' : 'Limit search finished')
     : (note === 'stopped' ? '找上限已停止' : '找上限完成'));
-  if (note !== 'stopped') play('win');
 }
 
 function endStep(L: LimitState, w: Window, topo: Topology, t: number) {

@@ -1,5 +1,4 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { play } from './sound';
 import {
   Background, BackgroundVariant, BaseEdge, Controls, EdgeLabelRenderer, Handle, Position, ReactFlow,
   getBezierPath, useNodesState, useReactFlow,
@@ -59,7 +58,7 @@ const SimNode = memo(function SimNode({ id, data, selected }: NodeProps<SimNodeT
     if (running && s.err >= 3 && cfg.type !== 'client') add.push({ id: now, text: `−${fmtRate(s.err)}`, kind: 'dmg' });
     if (p && (cfg.type === 'service' || cfg.type === 'gateway')) {
       if (inst > p.inst) add.push({ id: now + 1, text: t(`+${inst - p.inst} 实例`, `+${inst - p.inst} inst.`), kind: 'heal' });
-      if (down > p.down) { setBoom(now); play('crash'); }
+      if (down > p.down) setBoom(now);
     }
     if (p && p.health === 'crit' && (health === 'ok' || health === 'warn')) setHealRing(now);
     prev.current = { inst, down, health };

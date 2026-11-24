@@ -11,7 +11,6 @@ import { useObs } from './obs';
 import { FetchAllButton } from './ObsPanel';
 import { lessonById } from '../learn/lessons';
 import { levelById, useGame } from './game';
-import { play } from './sound';
 import { DURATIONS, useRuns } from './runs';
 
 const SPEEDS = [1, 2, 5, 10, 20];
@@ -75,7 +74,7 @@ export function TopBar() {
           <TopologyMenu />
           <ScenarioMenu />
           <FetchAllButton />
-          <button type="button" className="btn btn--learn" onClick={() => { play('click'); openLessons(); }}>
+          <button type="button" className="btn btn--learn" onClick={() => openLessons()}>
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 5.5 8 2.5l6.5 3L8 8.5z M4 7v3.5c0 1 1.8 2 4 2s4-1 4-2V7 M14.5 5.5v4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
             {t('学习', 'Learn')}
           </button>
@@ -109,7 +108,6 @@ export function TopBar() {
         <LangSwitch />
         <ThemeSwitch />
         <SettingsButton />
-        <SoundSwitch />
         <FileMenu sandbox={!challenge} />
       </div>
     </header>
@@ -208,22 +206,6 @@ function ThemeSwitch() {
       ) : (
         <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M14.8 11.2A6.3 6.3 0 0 1 6.8 3.2a6.3 6.3 0 1 0 8 8Z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
       )}
-    </button>
-  );
-}
-
-function SoundSwitch() {
-  const t = useT();
-  const on = useGame((g) => g.sound);
-  const toggle = useGame((g) => g.toggleSound);
-  const label = on ? t('关闭音效', 'Mute sound effects') : t('打开音效', 'Turn on sound effects');
-  return (
-    <button type="button" className={`icon-btn${on ? ' is-on' : ''}`} aria-label={label} aria-pressed={on} title={label} onClick={toggle}>
-      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-        <path d="M3 7h3l4-3.5v11L6 11H3Z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-        {on ? <path d="M12.5 6.5a3.5 3.5 0 0 1 0 5M14.5 4.5a6.4 6.4 0 0 1 0 9" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          : <path d="M12.5 7l4 4M16.5 7l-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />}
-      </svg>
     </button>
   );
 }
@@ -406,7 +388,11 @@ function SettingsButton() {
   const label = t('设置', 'Settings');
   return (
     <button type="button" className="icon-btn" aria-label={label} title={label} onClick={() => setOpen(true)}>
-      <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 6.8a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4Z M8.6 2h2.8l.4 2.1 1.6.9 2-.8 1.4 2.4-1.6 1.4v1.9l1.6 1.4-1.4 2.4-2-.8-1.6.9-.4 2.1H8.6l-.4-2.1-1.6-.9-2 .8-1.4-2.4 1.6-1.4V8l-1.6-1.4 1.4-2.4 2 .8 1.6-.9z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" /></svg>
+      <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
+        {/* an 8-tooth gear, drawn symmetric so it reads the same at 18px */}
+        <path d="M16.20 8.40 18.20 8.70 18.20 11.30 16.20 11.60 15.51 13.25 16.71 14.88 14.88 16.71 13.25 15.51 11.60 16.20 11.30 18.20 8.70 18.20 8.40 16.20 6.75 15.51 5.12 16.71 3.29 14.88 4.49 13.25 3.80 11.60 1.80 11.30 1.80 8.70 3.80 8.40 4.49 6.75 3.29 5.12 5.12 3.29 6.75 4.49 8.40 3.80 8.70 1.80 11.30 1.80 11.60 3.80 13.25 4.49 14.88 3.29 16.71 5.12 15.51 6.75Z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+        <circle cx="10" cy="10" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      </svg>
     </button>
   );
 }

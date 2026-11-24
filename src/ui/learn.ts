@@ -6,7 +6,6 @@ import { sweepNext, type LessonCtx, type Measure, type NodeMeasure } from '../le
 import { mainService } from '../learn/helpers';
 import { useStore } from './store';
 import { useGame } from './game';
-import { play } from './sound';
 import { DURATIONS, useRuns } from './runs';
 import { pooledPct } from './format';
 
@@ -119,14 +118,12 @@ export const useLearn = create<LearnState>((set, get) => ({
       const completed = { ...get().completed, [lesson.id]: true };
       save(LS_PROGRESS, completed);
       set({ completed });
-      play('win');
     }
     evaluate();
   },
   skip: () => get().next(),
   answer: (stepId, i) => {
     set({ answers: { ...get().answers, [stepId]: i } });
-    play('click');
     get().next();
   },
   exit: (keep = false) => {
@@ -212,7 +209,6 @@ function evaluate() {
   }
   if (!step.hold) {
     useLearn.setState({ stepDone: true });
-    play('recover');
     return;
   }
   const now = c.latest?.t ?? 0;
@@ -229,11 +225,9 @@ function evaluate() {
     if (sw && sweepNext(sw, meas) !== undefined) {
       // this setting is measured; wait for the next one
       useLearn.setState({ meas, since: null, held: 0 });
-      play('click');
       return;
     }
     useLearn.setState({ stepDone: true, held: step.hold, meas });
-    play('recover');
   } else if (held !== l.held) {
     useLearn.setState({ held });
   }

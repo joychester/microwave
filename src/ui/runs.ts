@@ -8,7 +8,6 @@ import { describeProgram, isProgram, programFromLegacy } from '../engine/traffic
 import type { Snapshot, Topology } from '../engine/types';
 import { useStore } from './store';
 import { useGame } from './game';
-import { play } from './sound';
 import { sloPct, type Pct } from './format';
 import { limitActive } from './limit';
 
@@ -203,7 +202,6 @@ function complete() {
   useRuns.setState({ reports: [rep, ...r.reports].slice(0, 10), seq: id, acc: null, baseT: r.acc.t0 + r.acc.seconds });
   st.setDock('report');
   st.showToast(st.lang === 'en' ? `Run ${rep.name} finished: report is ready` : `运行 ${rep.name} 已结束，报告已生成`);
-  play('win');
 }
 
 useStore.subscribe((s, prev) => {
