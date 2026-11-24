@@ -167,6 +167,34 @@ export const lesson02: Lesson = {
       },
     },
     {
+      id: 'little',
+      kind: 'read',
+      title: L('利特尔定律', "Little's law"),
+      body: (c) => {
+        const s = mainService(c);
+        const threads = Number(s?.params.workers ?? 50) * Math.max(1, instances(c));
+        // the service's own time per request (W) and how busy its threads were, at two levels
+        const pt = (v: number) => {
+          const m = at(c, v);
+          const n = m && s ? m.nodes[s.id] : undefined;
+          if (!m || !n || !(n.lat > 0)) return null;
+          return { rate: v, w: n.lat, l: (v * n.lat) / 1000, busy: n.util };
+        };
+        const lo = pt(BASE), hi = pt(200);
+        const f = (v: number) => v.toFixed(1);
+        const zhNums = lo
+          ? `\n\n用你测到的数字算一下。${BASE}/s 时，每个请求在服务里平均待 ${f(lo.w)}ms，所以 L = ${BASE} × ${f(lo.w)}ms ≈ ${f(lo.l)}：平均同时有约 ${f(lo.l)} 个请求在服务里。每个请求占一个线程，这个实例有 ${threads} 个线程，平均应该有约 ${f(lo.l)} 个线程在忙；实测线程占用 ${(lo.busy * 100).toFixed(1)}%，也就是 ${threads} × ${(lo.busy * 100).toFixed(1)}% ≈ ${f(lo.busy * threads)} 个，对得上。${hi ? `\n\n200/s 时，每个请求平均待 ${f(hi.w)}ms，L = 200 × ${f(hi.w)}ms ≈ ${f(hi.l)}。流量只翻了一倍，同时在服务里的请求却是 ${f(hi.l / lo.l)} 倍：多出来的都是在排队等 CPU 的。` : ''}`
+          : '';
+        const enNums = lo
+          ? `\n\nTry it with your own numbers. At ${BASE}/s each request spends ${f(lo.w)}ms in the service on average, so L = ${BASE} × ${f(lo.w)}ms ≈ ${f(lo.l)}: about ${f(lo.l)} requests are in the service at any moment. Each holds a thread, and this instance has ${threads}, so about ${f(lo.l)} threads should be busy on average; you measured ${(lo.busy * 100).toFixed(1)}% of them busy, ${threads} × ${(lo.busy * 100).toFixed(1)}% ≈ ${f(lo.busy * threads)}, a match.${hi ? `\n\nAt 200/s each request spends ${f(hi.w)}ms, so L = 200 × ${f(hi.w)}ms ≈ ${f(hi.l)}. Traffic only doubled, yet ${f(hi.l / lo.l)}× as many requests are in the service at once: the extra ones are waiting for CPU.` : ''}`
+          : '';
+        return {
+          zh: `排队论里还有一条最常用的规律，叫利特尔定律（Little's law）：\n\nL = λ × W\n\n• L：系统里平均同时有多少个请求（正在处理的 + 正在排队的）\n• λ：每秒到达多少个请求\n• W：每个请求在系统里平均待多久（换成秒）${zhNums}\n\n它几乎不需要前提：不管请求怎么到达、处理时间怎么分布，只要系统稳定（长期看进来多少就出去多少）就成立。220/s 超过了上限，进来的比出去的多，队伍一直变长，所以那一档的延迟一直在涨，算不出一个稳定的平均值。\n\n"系统"可以随便划：整个服务、一个线程池、一个连接池、一个队列都行。所以它到处有用：\n\n• 池子要开多大：连接数 ≈ 每秒查询数 × 每次查询时间（第 4 课会用到）\n• 从积压算等待：队列里积压 6000 条、每秒处理 200 条，新消息大约要等 30 秒\n• 从并发上限算吞吐上限：50 个线程、每个请求 100ms，最多每秒处理 500 个`,
+          en: `Queueing theory has one more rule you will use all the time, Little's law:\n\nL = λ × W\n\n• L: how many requests are in the system on average (being served plus waiting)\n• λ: how many requests arrive per second\n• W: how long each request spends in the system on average (in seconds)${enNums}\n\nIt needs almost no assumptions: however requests arrive and however long they take, it holds as long as the system is stable (in the long run, as many leave as arrive). 220/s is past the limit, more arrive than leave and the line keeps growing, which is why latency kept rising at that level and has no steady average.\n\nThe "system" can be anything you draw a box around: a whole service, a thread pool, a connection pool, a queue. So it is useful everywhere:\n\n• Sizing a pool: connections ≈ queries per second × time per query (you will use this in lesson 4)\n• Waiting from a backlog: 6,000 messages queued and 200 handled a second means a new one waits about 30 seconds\n• Throughput from a concurrency limit: 50 threads at 100ms per request handle at most 500 requests a second`,
+        };
+      },
+    },
+    {
       id: 'predict-fix',
       kind: 'predict',
       title: L('预测修复效果', 'Predict the fix'),
