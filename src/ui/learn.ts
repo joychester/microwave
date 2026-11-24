@@ -165,15 +165,17 @@ function measure(from: number): Measure {
   const svc = mainService(c);
   const n = Math.max(1, snaps.length);
   let req = 0, ok = 0, done = 0, latSum = 0, cpu = 0;
-  const nodes: Record<string, NodeMeasure & { latW: number }> = {};
+  const nodes: Record<string, NodeMeasure & { latW: number; hitN: number }> = {};
   const causes: Record<string, number> = {};
   for (const x of snaps) {
     const d = x.sys.ok + x.sys.fail;
     req += x.sys.req; ok += x.sys.ok; done += d; latSum += x.sys.mean * d;
     if (svc) cpu += x.nodes[svc.id]?.cpu ?? 0;
     for (const [id, ns] of Object.entries(x.nodes)) {
-      const a = (nodes[id] ??= { util: 0, cpu: 0, lat: 0, conns: 0, latW: 0 });
-      a.util += ns.util; a.cpu += ns.cpu; a.conns += ns.extra.conns ?? 0;
+      const a = (nodes[id] ??= { util: 0, cpu: 0, lat: 0, conns: 0, arr: 0, hit: 0, latW: 0, hitN: 0 });
+      a.util += ns.util; a.cpu += ns.cpu; a.conns += ns.extra.conns ?? 0; a.arr += ns.arr;
+      const hr = ns.extra.hitRatio;
+      if (hr !== undefined && isFinite(hr)) { a.hit += hr; a.hitN++; }
       // latency weighted by completions, ignoring seconds with none
       const w = ns.ok + ns.err;
       if (ns.mean !== undefined && isFinite(ns.mean) && w > 0) { a.lat += ns.mean * w; a.latW += w; }
@@ -181,7 +183,7 @@ function measure(from: number): Measure {
     for (const [k, v] of Object.entries(x.sys.causes)) causes[k] = (causes[k] ?? 0) + v;
   }
   const perNode: Record<string, NodeMeasure> = {};
-  for (const [id, a] of Object.entries(nodes)) perNode[id] = { util: a.util / n, cpu: a.cpu / n, lat: a.latW > 0 ? a.lat / a.latW : 0, conns: a.conns / n };
+  for (const [id, a] of Object.entries(nodes)) perNode[id] = { util: a.util / n, cpu: a.cpu / n, lat: a.latW > 0 ? a.lat / a.latW : 0, conns: a.conns / n, arr: a.arr / n, hit: a.hitN > 0 ? a.hit / a.hitN : NaN };
   for (const k of Object.keys(causes)) causes[k] /= n;
   // p95 of every request in the window, not an average of per-second p95s
   const pooled = pooledPct(snaps.map((x) => x.sys.hist));

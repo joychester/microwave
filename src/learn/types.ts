@@ -12,13 +12,14 @@ export interface Measure {
   avail: number; // 0..1
   cpu: number; // CPU utilization of the lesson's main service, 0..1
   instances: number;
-  /** Per component, averaged over the window: utilization, CPU, mean latency (ms), open connections. */
+  /** Per component, averaged over the window: utilization, CPU, mean latency (ms), open connections,
+   *  requests arriving per second, and (caches) the hit ratio. */
   nodes: Record<string, NodeMeasure>;
   /** Failed requests per second by cause (e.g. pool_timeout, rejected), averaged over the window. */
   causes: Record<string, number>;
 }
 
-export interface NodeMeasure { util: number; cpu: number; lat: number; conns: number }
+export interface NodeMeasure { util: number; cpu: number; lat: number; conns: number; arr: number; hit: number }
 
 export interface LessonCtx {
   lang: Lang;

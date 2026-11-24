@@ -5,7 +5,7 @@ import type { EdgeCfg, NodeCfg, Params } from '../engine/types';
 import { useStore } from './store';
 import { Glyph } from './Glyph';
 import { ParamField, NumberInput } from './ParamField';
-import { FaultCurve, FaultPreview } from './FaultPreview';
+import { FaultCurve, FaultPreview, warmsUp } from './FaultPreview';
 import { TimeChart } from './TimeChart';
 import { useSeries } from './theme';
 import { useLang, useT } from './i18n';
@@ -223,7 +223,10 @@ function FailureRow({ node, spec }: { node: NodeCfg; spec: FailureKindSpec }) {
   const mine = failures.filter((f) => f.nodeId === node.id && f.kind === spec.kind);
   const active = mine.filter((f) => f.end < 0 || f.end > simTime);
   // ended, but still easing back to normal (e.g. a cache warming up again)
-  const recovering = mine.filter((f) => f.end >= 0 && f.end <= simTime && simTime < f.end + f.recovery_s * 1000);
+  // a cache in capacity mode has no set recovery time (it warms up as misses are refilled), so nothing to count down
+  const warm = warmsUp(node, spec.kind);
+  const timedRecovery = spec.defaultRecovery !== undefined && !warm;
+  const recovering = timedRecovery ? mine.filter((f) => f.end >= 0 && f.end <= simTime && simTime < f.end + f.recovery_s * 1000) : [];
   const shown = active[0] ?? recovering[0];
   const [vals, setVals] = useState<Record<string, number>>(() => Object.fromEntries(spec.params.map((p) => [p.key, p.default])));
   const [dur, setDur] = useState(spec.defaultDuration);
@@ -248,7 +251,7 @@ function FailureRow({ node, spec }: { node: NodeCfg; spec: FailureKindSpec }) {
       {shown ? (
         <>
         {/* the fault's level over time, with how far along it is (ended early → drawn as it actually ran) */}
-        <FaultCurve kind={spec.kind} vals={shown.params} dur={shown.end < 0 ? 0 : (shown.end - shown.start) / 1000} rec={spec.defaultRecovery !== undefined ? shown.recovery_s : 0} now={(simTime - shown.start) / 1000} />
+        <FaultCurve kind={spec.kind} vals={shown.params} dur={shown.end < 0 ? 0 : (shown.end - shown.start) / 1000} rec={timedRecovery ? shown.recovery_s : 0} warm={warm} now={(simTime - shown.start) / 1000} />
         <p className="fr-active">
           {active.length === 0 ? t(`恢复中，还剩 ${Math.max(0, Math.ceil((shown.end + shown.recovery_s * 1000 - simTime) / 1000))}s`, `Recovering, ${Math.max(0, Math.ceil((shown.end + shown.recovery_s * 1000 - simTime) / 1000))}s left`) : active.map((a) => (a.end < 0 ? t('进行中，需手动结束', 'Active until you end it') : t(`还剩 ${Math.max(0, Math.ceil((a.end - simTime) / 1000))}s`, `${Math.max(0, Math.ceil((a.end - simTime) / 1000))}s left`))).join(lang === 'en' ? '; ' : '；')}
         </p>
@@ -261,8 +264,8 @@ function FailureRow({ node, spec }: { node: NodeCfg; spec: FailureKindSpec }) {
             </label>
           ))}
           <label title={t('填 0 表示一直生效，直到手动结束', '0 keeps it on until you end it')}><span>{t('持续时长', 'Lasts')}</span><NumberInput value={dur} min={0} max={3600} unit="s" onCommit={setDur} /></label>
-          {spec.defaultRecovery !== undefined && <label><span>{t('恢复', 'Recovery')}</span><NumberInput value={rec} min={0} max={3600} unit="s" onCommit={setRec} /></label>}
-          <FaultPreview node={node} spec={spec} vals={vals} dur={dur} rec={spec.defaultRecovery !== undefined ? rec : 0} />
+          {timedRecovery && <label><span>{t('恢复', 'Recovery')}</span><NumberInput value={rec} min={0} max={3600} unit="s" onCommit={setRec} /></label>}
+          <FaultPreview node={node} spec={spec} vals={vals} dur={dur} rec={timedRecovery ? rec : 0} />
         </div>
       )}
     </div>
@@ -293,7 +296,8 @@ function EdgeInspector({ edge }: { edge: EdgeCfg }) {
   })).filter((g) => {
     if (g.items.length === 0) return false;
     if (g.id === 'route') return true;
-    if (g.id === 'pool') return (to?.type === 'database' || to?.type === 'cache') && from?.type === 'service';
+    // a cache's origin fetch on a miss uses the calling service instance's pool, so it has one too
+    if (g.id === 'pool') return (to?.type === 'database' || to?.type === 'cache') && (from?.type === 'service' || (from?.type === 'cache' && to?.type === 'database'));
     return true;
   }).map((g) => ({
     ...g,

@@ -276,7 +276,7 @@ export const EDGE_SPECS: ParamSpec[] = [
   { key: 'cbFallback', label: L('熔断时', 'When open'), kind: 'enum', default: 'error', group: 'breaker', options: [
     { value: 'error', label: L('直接返回错误', 'Fail fast') }, { value: 'success', label: L('降级返回默认值', 'Return a fallback') },
   ], showIf: (p) => !!p.cbEnabled },
-  { key: 'poolSize', label: L('每实例连接池大小', 'Pool size per instance'), kind: 'int', default: 20, min: 0, max: 10000, group: 'pool', help: L('仅对数据库 / 缓存目标生效；0 表示不限', 'Only for database and cache targets; 0 means unlimited') },
+  { key: 'poolSize', label: L('每实例连接池大小', 'Pool size per instance'), kind: 'int', default: 20, min: 0, max: 10000, group: 'pool', help: L('仅对数据库 / 缓存目标生效；缓存回源到数据库时，按调用缓存的那个服务实例计；0 表示不限', 'Only for database and cache targets; for a cache fetching from its database, counted per calling service instance; 0 means unlimited') },
   { key: 'poolTimeout', label: L('获取连接超时', 'Acquire timeout'), kind: 'ms', default: 1000, min: 1, max: 60000, group: 'pool' },
 ];
 

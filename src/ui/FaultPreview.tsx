@@ -15,12 +15,20 @@ const W = 260, H = 64, TOP = 16, BASE = 50;
  * The fault's level over time. With `now` (seconds since injection) it shows progress: the elapsed
  * part filled darker, a line at the current moment, and elapsed / remaining time.
  */
-export function FaultCurve({ kind, vals, dur, rec, now }: { kind: string; vals: Record<string, number>; dur: number; rec: number; now?: number }) {
+/** A cache flush in capacity mode has no set recovery time: the cache warms up as misses are refilled. */
+export function warmsUp(node: NodeCfg, kind: string): boolean {
+  return node.type === 'cache' && kind === 'flush' && node.params.hitMode === 'capacity';
+}
+
+export function FaultCurve({ kind, vals, dur, rec, now, warm }: { kind: string; vals: Record<string, number>; dur: number; rec: number; now?: number; warm?: boolean }) {
   const t = useT();
   const lang = useLang();
   const clipId = useId();
   const open = dur <= 0;
   const live = now !== undefined;
+  // warming up has no set length: draw a dashed ramp of a nominal length, labelled as open
+  const warmUp = !!warm && !open;
+  if (warmUp) rec = Math.max(dur * 3, 15);
   // time shown: a bit of normal before the fault, the fault, its recovery, a bit of normal after;
   // a fault that stays on keeps stretching the axis so the current moment keeps moving
   const span = open ? Math.max(60, live ? now! * 1.25 : 0) : dur + rec;
@@ -31,8 +39,9 @@ export function FaultCurve({ kind, vals, dur, rec, now }: { kind: string; vals: 
   const level = faultLevel(kind, vals);
   const d = open
     ? `M8 ${BASE} H${x0} V${TOP} H${W - 8}`
-    : `M8 ${BASE} H${x0} V${TOP} H${x1} L${x2} ${BASE} H${W - 8}`;
-  const area = open ? `M${x0} ${BASE} V${TOP} H${W - 8} V${BASE} Z` : `M${x0} ${BASE} V${TOP} H${x1} L${x2} ${BASE} Z`;
+    : warmUp ? `M8 ${BASE} H${x0} V${TOP} H${x1}` : `M8 ${BASE} H${x0} V${TOP} H${x1} L${x2} ${BASE} H${W - 8}`;
+  const ramp = warmUp ? `Q${x1 + (x2 - x1) * 0.35} ${BASE - 2} ${x2} ${BASE}` : `L${x2} ${BASE}`;
+  const area = open ? `M${x0} ${BASE} V${TOP} H${W - 8} V${BASE} Z` : `M${x0} ${BASE} V${TOP} H${x1} ${ramp} Z`;
   const secs = (s: number) => `${+s.toFixed(1)}s`;
   // the current moment, held to the drawn range
   const tNow = live ? Math.min(Math.max(0, now!), open ? span : dur + rec) : 0;
@@ -49,7 +58,7 @@ export function FaultCurve({ kind, vals, dur, rec, now }: { kind: string; vals: 
     <svg className="fp-curve" viewBox={`0 0 ${W} ${H + 14}`} role="img"
       aria-label={open
         ? t(`注入后一直生效${level ? `（${level.zh}）` : ''}，直到手动结束`, `From injection${level ? ` (${level.en})` : ''} until you end it`)
-        : t(`注入后生效 ${dur} 秒${level ? `（${level.zh}）` : ''}${rec ? `，再用 ${rec} 秒逐步恢复` : ''}`, `Active for ${dur} s after injection${level ? ` (${level.en})` : ''}${rec ? `, then recovers over ${rec} s` : ''}`)}>
+        : t(`注入后生效 ${dur} 秒${level ? `（${level.zh}）` : ''}${warmUp ? '，之后随回源逐步回暖' : rec ? `，再用 ${rec} 秒逐步恢复` : ''}`, `Active for ${dur} s after injection${level ? ` (${level.en})` : ''}${warmUp ? ', then warms up as misses are refilled' : rec ? `, then recovers over ${rec} s` : ''}`)}>
       <path d={area} className="fp-area" />
       {live && (
         <>
@@ -59,6 +68,7 @@ export function FaultCurve({ kind, vals, dur, rec, now }: { kind: string; vals: 
       )}
       <path d={d} className="fp-line" />
       {open && <path d={`M${W - 22} ${TOP} H${W - 8}`} className="fp-open" />}
+      {warmUp && <path d={`M${x1} ${TOP} ${ramp} H${W - 8}`} className="fp-open" fill="none" />}
       <text x={10} y={BASE - 5} className="fp-t">{t('正常', 'Normal')}</text>
       {/* while live the level sits inside the shape, leaving the top for the time label */}
       {level && <text x={x0 + 5} y={live ? TOP + 12 : TOP - 4} className="fp-t fp-lvl">{level[lang]}</text>}
@@ -78,7 +88,7 @@ export function FaultCurve({ kind, vals, dur, rec, now }: { kind: string; vals: 
         <>
           <line x1={x1} x2={x1} y1={BASE} y2={BASE + 4} className="fp-tick" />
           {x1 - x0 >= 36 && <text x={x1} y={H + 10} className="fp-t" textAnchor={rec ? 'middle' : 'start'}>{secs(dur)}</text>}
-          {rec > 0 && <text x={W - 8} y={H + 10} className="fp-t" textAnchor="end">{t(`+${secs(rec)} 恢复`, `+${secs(rec)} recovery`)}</text>}
+          {rec > 0 && <text x={W - 8} y={H + 10} className="fp-t" textAnchor="end">{warmUp ? t('之后回暖，快慢取决于回源', 'then warms up, as fast as the origin allows') : t(`+${secs(rec)} 恢复`, `+${secs(rec)} recovery`)}</text>}
         </>
       )}
     </svg>
@@ -107,7 +117,7 @@ export function FaultPreview({ node, spec, vals, dur, rec }: { node: NodeCfg; sp
 
   return (
     <div className="fp">
-      <FaultCurve kind={spec.kind} vals={vals} dur={dur} rec={rec} />
+      <FaultCurve kind={spec.kind} vals={vals} dur={dur} rec={rec} warm={warmsUp(node, spec.kind)} />
       {impact?.down && <p className="fp-direct fp-bad">{t('所有实例都宕机：这个组件的请求将全部失败。', 'Every instance is down: all requests to this component fail.')}</p>}
       {impact && impact.rows.length > 0 && (
         <div className="fp-est">
