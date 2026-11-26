@@ -34,10 +34,10 @@ function groupSpecs(specs: ParamSpec[], params: Params) {
   return groups;
 }
 
-function Section({ title, children, defaultOpen = true, aside }: { title: string; children: React.ReactNode; defaultOpen?: boolean; aside?: React.ReactNode }) {
+function Section({ id, title, children, defaultOpen = true, aside }: { id?: string; title: string; children: React.ReactNode; defaultOpen?: boolean; aside?: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className={`ins-sec${open ? ' is-open' : ''}`}>
+    <section className={`ins-sec${open ? ' is-open' : ''}`} data-sec={id}>
       <button type="button" className="ins-sec-head" aria-expanded={open} onClick={() => setOpen(!open)}>
         <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 2l4 3-4 3" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
         <span>{title}</span>
@@ -136,7 +136,7 @@ function NodeInspector({ node }: { node: NodeCfg }) {
       )}
 
       {groups.map((g) => (
-        <Section key={g.id} title={GROUP_LABELS[g.id][lang]} defaultOpen={g.id !== 'gc' && g.id !== 'autoscale' && g.id !== 'usl'}
+        <Section key={g.id} id={g.id} title={GROUP_LABELS[g.id][lang]} defaultOpen={g.id !== 'gc' && g.id !== 'autoscale' && g.id !== 'usl'}
           aside={g.id === 'autoscale' && params.asEnabled ? <span className="pill pill--on">{t('开', 'On')}</span> : undefined}>
           {g.items.map((s) => (
             <ParamField key={s.key} spec={s} value={params[s.key]} disabled={isParamLocked(level, node.id, node.type, s.key)} onChange={(v) => updateParams(node.id, { [s.key]: v })} />

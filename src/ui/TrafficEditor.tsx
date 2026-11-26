@@ -142,7 +142,7 @@ export function TrafficEditor({ node, locked }: { node: NodeCfg; locked: boolean
       <div className="te-h">{t('基础模型', 'Base model')}</div>
       <div className="tm-grid" role="radiogroup" aria-label={t('基础流量模型', 'Base traffic model')}>
         {bases.map((m) => (
-          <button key={m.kind} type="button" role="radio" aria-checked={prog.base.kind === m.kind}
+          <button key={m.kind} type="button" role="radio" aria-checked={prog.base.kind === m.kind} data-model={m.kind}
             className={`tm${prog.base.kind === m.kind ? ' is-on' : ''}`} title={m.desc[lang]}
             onClick={() => prog.base.kind !== m.kind && setProg({ ...prog, base: defaultLayer(m.kind, seedFor(m.kind, level)) })}>
             <ModelThumb kind={m.kind} />

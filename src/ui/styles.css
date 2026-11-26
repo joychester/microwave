@@ -829,7 +829,7 @@ fieldset.pf:disabled * { cursor: not-allowed; }
 .lock-hint { margin: 18px 16px 0; padding-top: 14px; border-top: 1px solid var(--line-2); font-size: 12px; color: var(--ink-3); }
 
 /* ============================================================ traffic editor */
-.te { display: grid; gap: 10px; }
+.te { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); } /* a long overlay description must not widen the panel */
 .tp { margin: 0; border: 1px solid var(--line-2); border-radius: var(--r-md); padding: 6px 6px 4px; background: var(--paper); }
 .tp svg { display: block; }
 .tp-grid { stroke: var(--line-2); stroke-width: 1; }
@@ -867,7 +867,7 @@ fieldset.pf:disabled * { cursor: not-allowed; }
 .tm-add { display: flex; flex-wrap: wrap; gap: 6px; }
 .tm-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px 4px 6px; border: 1px dashed var(--line-strong); border-radius: 999px; background: none; color: var(--ink-2); font-size: 12px; }
 .tm-chip:hover { border-style: solid; color: var(--ink); background: var(--raised); }
-.tm-ov { border: 1px solid var(--line); border-radius: var(--r-md); padding: 8px 10px 10px; display: grid; gap: 8px; background: var(--raised); }
+.tm-ov { border: 1px solid var(--line); border-radius: var(--r-md); padding: 8px 10px 10px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; background: var(--raised); }
 .tm-ov-head { display: flex; align-items: center; gap: 8px; }
 .tm-ov-head b { font-size: 12.5px; }
 .tm-ov-use { flex: 1; min-width: 0; font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
