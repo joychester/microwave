@@ -75,6 +75,17 @@ function make(lang: Lang): Topology {
 
 const one = L('1 个 × 4 核', '1 × 4 cores');
 
+// AWS EC2 on-demand, us-east-1 (checked November 2026). One simulated core is taken as one vCPU.
+const AWS = { large: 0.1008, xlarge: 0.2016, alb: 0.0225 }; // m7i.large 2 vCPU, m7i.xlarge 4 vCPU, ALB per hour
+const MONTH = 730; // hours
+const perMonth = (hourly: number) => `$${Math.round(hourly * MONTH)}`;
+const COST = {
+  up: AWS.xlarge, // 1 × m7i.xlarge, no load balancer needed
+  out: 2 * AWS.large + AWS.alb, // 2 × m7i.large behind an ALB
+  upN1: 2 * AWS.xlarge + AWS.alb, // survive one crash: a second big one
+  outN1: 3 * AWS.large + AWS.alb, // survive one crash: a third small one
+};
+
 function bars(c: LessonCtx): BarGroup[] {
   const up = m(c, 'up'), out = m(c, 'out'), dv = m(c, 'downV'), dh = m(c, 'downH'), c1 = m(c, 'c1'), c4 = m(c, 'c4');
   const groups: BarGroup[] = [];
@@ -83,6 +94,16 @@ function bars(c: LessonCtx): BarGroup[] {
     rows: [
       { label: one, value: up.p95, text: fmtLatency(up.p95) },
       { label: L('2 个 × 2 核', '2 × 2 cores'), value: out.p95, text: fmtLatency(out.p95) },
+    ],
+  });
+  // the AWS bill, next to the latency comparison it goes with
+  if (up && out && !dv) groups.push({
+    title: L('AWS 每月成本（us-east-1 按需价）', 'AWS cost per month (us-east-1, on-demand)'),
+    rows: [
+      { label: L('1 × 4 vCPU', '1 × 4 vCPU'), value: COST.up, text: perMonth(COST.up) },
+      { label: L('2 × 2 vCPU', '2 × 2 vCPU'), value: COST.out, text: perMonth(COST.out) },
+      { label: L('N+1：2 × 4', 'N+1: 2 × 4'), value: COST.upN1, text: perMonth(COST.upN1), bad: true },
+      { label: L('N+1：3 × 2', 'N+1: 3 × 2'), value: COST.outN1, text: perMonth(COST.outN1) },
     ],
   });
   if (dv && dh) groups.push({
@@ -100,8 +121,10 @@ function bars(c: LessonCtx): BarGroup[] {
       { label: L('每实例 4 核', '4 cores each'), value: c4.avg, text: fmtLatency(c4.avg) },
     ],
   });
-  // while working through the lesson, show only the latest comparison; at the end, all of them
-  return c1 && c4 ? groups : groups.slice(-1);
+  // while working through the lesson, show only the latest comparison (the cost next to the latency
+  // it goes with); at the end, all of them
+  if (c1 && c4) return groups;
+  return up && out && !dv ? groups.slice(-2) : groups.slice(-1);
 }
 
 export const lesson03: Lesson = {
@@ -195,6 +218,15 @@ export const lesson03: Lesson = {
       body: L(
         '想想超市收银。4 个收银员共用一条队伍，谁先空下来谁接下一位；换成各排各的 4 条队，常常一条排得很长，旁边的收银员却闲着。\n\n1 个 4 核实例就像共用一条队：只要 4 个核里有一个空着，新请求就能马上处理。2 个 2 核实例是两条队：请求被平均分过去，但请求是随机到达的，常常一边忙不过来，另一边却有空闲的核。\n\n平均利用率一样，排队却不一样，差距在 p95 这种"慢的那批请求"上最明显，而且越接近满载差距越大。排队论把这叫做资源池化的效率。\n\n这么看，实例好像越大越好。下一步看它的代价。',
         'Think of supermarket checkouts. Four cashiers sharing one line: whoever is free takes the next customer. Four separate lines: one line is often long while the cashier next to it sits idle.\n\nOne 4-core instance is the shared line: as long as any of its 4 cores is free, a new request starts at once. Two 2-core instances are two lines: requests are split evenly, but they arrive at random, so one side is often swamped while the other has an idle core.\n\nSame average utilization, different queueing. The gap shows most in p95, the slow tail, and it widens as you approach full load. Queueing theory calls this the efficiency of pooling.\n\nSo bigger instances look better. Next, see what they cost.',
+      ),
+    },
+    {
+      id: 'cost',
+      kind: 'read',
+      title: L('算一笔 AWS 的账', 'Now the AWS bill'),
+      body: L(
+        `性能比完了，再看钱。以 AWS EC2 的 m7i 系列为例（us-east-1 按需价，2026 年 11 月），把仿真里的 1 个核当作 1 个 vCPU：\n\n• m7i.large：2 vCPU，$${AWS.large}/小时，约 ${perMonth(AWS.large)}/月\n• m7i.xlarge：4 vCPU，$${AWS.xlarge}/小时，约 ${perMonth(AWS.xlarge)}/月\n\n同一系列里，价格和 vCPU 数成正比，每个 vCPU 都是约 $0.05/小时。所以总核数一样时，垂直和水平的机器钱是一样的。差别在别处：\n\n• 水平扩展要有负载均衡器分流量。AWS 的 ALB 每小时 $${AWS.alb}（约 ${perMonth(AWS.alb)}/月），另加按流量计的 LCU 费用。所以 2 × 2 vCPU 每月约 ${perMonth(COST.out)}，比 1 × 4 vCPU 的 ${perMonth(COST.up)} 略贵。\n• 每个实例都要跑操作系统、监控代理之类的东西，这部分开销按实例数算，实例越小占比越大。\n• 真正拉开差距的是"挂一台还扛得住"（N+1）。要在 ${LOAD}/s 下挂掉一台后还剩 4 个 vCPU：垂直扩展得准备 2 台 m7i.xlarge，共 8 个 vCPU，每月约 ${perMonth(COST.upN1)}；水平扩展 3 台 m7i.large，共 6 个 vCPU 就够，每月约 ${perMonth(COST.outN1)}。同样扛得住挂一台，便宜约 ${Math.round((1 - COST.outN1 / COST.upN1) * 100)}%。实例越小，多准备的那一台就越便宜。\n\n后面两步就来看挂一台会怎样。\n\n注意：m7i 最小的型号是 2 vCPU，后面实验里的 1 核实例在这个系列里没有对应型号。工作台右上角的"成本"是简化模型（每核每小时 $0.10），用来比较方案之间的相对高低，不是 AWS 账单。实际价格因区域、Savings Plans、Spot 而不同。`,
+        `So much for performance; now the money. Take AWS EC2's m7i family (us-east-1 on-demand, November 2026), counting one simulated core as one vCPU:\n\n• m7i.large: 2 vCPU, $${AWS.large}/hour, about ${perMonth(AWS.large)}/month\n• m7i.xlarge: 4 vCPU, $${AWS.xlarge}/hour, about ${perMonth(AWS.xlarge)}/month\n\nWithin a family the price is proportional to vCPUs, about $0.05 per vCPU-hour. So for the same total cores, scaling up and scaling out cost the same in machines. The differences are elsewhere:\n\n• Scaling out needs a load balancer to split traffic. An AWS ALB is $${AWS.alb}/hour (about ${perMonth(AWS.alb)}/month), plus LCU charges by traffic. So 2 × 2 vCPU is about ${perMonth(COST.out)}/month, a little more than ${perMonth(COST.up)} for 1 × 4 vCPU.\n• Every instance runs an operating system, monitoring agents and so on; that overhead is per instance and weighs more on small instances.\n• The real gap is surviving the loss of one machine (N+1). To keep 4 vCPUs at ${LOAD}/s after one crash, scaling up needs 2 × m7i.xlarge, 8 vCPUs, about ${perMonth(COST.upN1)}/month; scaling out needs 3 × m7i.large, 6 vCPUs, about ${perMonth(COST.outN1)}/month. The same resilience for about ${Math.round((1 - COST.outN1 / COST.upN1) * 100)}% less. The smaller the instances, the cheaper the spare one.\n\nThe next two steps show what happens when one crashes.\n\nNote: the smallest m7i is 2 vCPU, so the 1-core instances later in this lesson have no m7i equivalent. The Cost in the top-right corner of the workbench is a simplified model ($0.10 per core-hour) for comparing options with each other, not an AWS bill. Real prices vary with region, Savings Plans and Spot.`,
       ),
     },
     {
@@ -294,8 +326,8 @@ export const lesson03: Lesson = {
       kind: 'read',
       title: L('小结', 'Wrap-up'),
       body: L(
-        '记住三点：\n\n• 同样的总算力，大实例共用一条队，排队更少、尾延迟更低；负载越高，差距越大。\n• 但一个实例就是一个故障点。无状态服务通常至少跑 3 个实例并留够余量，挂掉一个还能扛住（N+1）；健康检查发现之前，还会有一小段时间请求失败。\n• 加核加的是吞吐，不会缩短单个请求的处理时间；单个实例的核数也有上限（这里是 64 核）。\n\n实际做法通常是两者结合：先把单个实例定在合适的规格，再靠实例数扩容，并留出 N+1 的余量。',
-        'Three things to remember:\n\n• For the same total capacity, a big instance shares one queue, so it queues less and has a lower tail latency; the gap widens with load.\n• But one instance is one point of failure. Stateless services usually run at least 3 instances with enough headroom to lose one (N+1); until health checks notice, some requests still fail for a short while.\n• Cores add throughput; they don\'t shorten the processing of a single request. And one instance can only have so many cores (64 here).\n\nIn practice you combine the two: pick a sensible size for one instance, then scale with the number of instances, keeping N+1 headroom.',
+        '记住四点：\n\n• 同样的总算力，大实例共用一条队，排队更少、尾延迟更低；负载越高，差距越大。\n• 但一个实例就是一个故障点。无状态服务通常至少跑 3 个实例并留够余量，挂掉一个还能扛住（N+1）；健康检查发现之前，还会有一小段时间请求失败。\n• 云上同一系列按 vCPU 计价，总核数一样，机器钱就一样；水平扩展多一个负载均衡器的钱，但要留 N+1 余量时，小实例多准备一台便宜得多。\n• 加核加的是吞吐，不会缩短单个请求的处理时间；单个实例的核数也有上限（这里是 64 核）。\n\n实际做法通常是两者结合：先把单个实例定在合适的规格，再靠实例数扩容，并留出 N+1 的余量。',
+        'Four things to remember:\n\n• For the same total capacity, a big instance shares one queue, so it queues less and has a lower tail latency; the gap widens with load.\n• But one instance is one point of failure. Stateless services usually run at least 3 instances with enough headroom to lose one (N+1); until health checks notice, some requests still fail for a short while.\n• In the cloud a family is priced per vCPU, so the same total cores cost the same; scaling out adds a load balancer, but once you keep N+1 headroom, a spare small instance is far cheaper than a spare big one.\n• Cores add throughput; they don\'t shorten the processing of a single request. And one instance can only have so many cores (64 here).\n\nIn practice you combine the two: pick a sensible size for one instance, then scale with the number of instances, keeping N+1 headroom.',
       ),
     },
   ],
