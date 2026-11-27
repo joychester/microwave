@@ -1146,6 +1146,14 @@ export class Simulator {
 
   private releaseConn(e: EdgeRT, pool: ConnPool) {
     pool.inUse = Math.max(0, pool.inUse - 1);
+    // the pool was made smaller: close connections beyond the new size as they come back, as real
+    // pools (HikariCP and the like) do, so the database sees its connection count fall
+    if (pool.opened > pool.size && pool.opened > pool.inUse) {
+      pool.opened--;
+      pool.target.openConns = Math.max(0, pool.target.openConns - 1);
+    }
+    // still at or over the (new) size: waiters keep waiting until enough connections come back
+    if (pool.inUse >= pool.size || pool.inUse >= pool.opened) return;
     for (;;) {
       const w = pool.waiters.shift();
       if (!w) return;
