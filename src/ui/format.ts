@@ -134,11 +134,14 @@ export function nodeHealth(type: NodeType, s: NodeSample | null, prevLag?: numbe
   return 'ok';
 }
 
-export function utilLabel(type: NodeType, s: NodeSample, lang: 'zh' | 'en' = 'zh'): { kind: string; value: number } | null {
+/** The card's utilization bar: the busier resource, plus (for a service held up by its threads while
+ *  its CPU sits well below) the CPU figure beside it, so the gap between them is visible at a glance. */
+export function utilLabel(type: NodeType, s: NodeSample, lang: 'zh' | 'en' = 'zh'): { kind: string; value: number; also?: { kind: string; value: number } } | null {
   const t = (zh: string, en: string) => (lang === 'en' ? en : zh);
   switch (type) {
     case 'service':
-      return s.cpu >= s.util ? { kind: 'CPU', value: s.cpu } : { kind: t('线程', 'Threads'), value: s.util };
+      if (s.cpu >= s.util) return { kind: 'CPU', value: s.cpu };
+      return { kind: t('线程', 'Threads'), value: s.util, ...(s.util - s.cpu >= 0.15 ? { also: { kind: 'CPU', value: s.cpu } } : {}) };
     case 'gateway':
       return { kind: t('并发', 'Concurrency'), value: s.util };
     case 'cache':

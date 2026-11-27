@@ -1,6 +1,6 @@
 # Microwave: a microservice performance simulation workbench
 
-> Formerly SimBench. The repository is still named `perf_sim_workbench`.
+**Try it online: https://joychester.github.io/microwave/** (nothing to install; comparing with real monitoring metrics needs a local run)
 
 Build a microservice topology by drag and drop, tune capacity, timeouts, retries and circuit breakers, inject faults, and watch bottlenecks, SLO impact and cascading failures in real time. An analytical model alongside the simulation gives steady-state capacity estimates.
 
@@ -218,6 +218,8 @@ npx tsx scripts/check-routing-cache.ts   # split ratios and cache warm-up
 npx tsx scripts/check-calibration.ts     # calibration round trip against a hidden "production"
 ```
 
+Every push to `main` builds the app and deploys it to GitHub Pages through GitHub Actions (`.github/workflows/pages.yml`).
+
 ## Layout
 
 ```
@@ -261,6 +263,8 @@ scripts/run-scenarios.ts   headless scenario runner
 | Message queue | Partitioned buffer + consumer group | Effective parallelism = min(consumers, partitions); rebalance pauses; failed messages retried, then dead-lettered |
 | Third-party API | Black-box delay + quota | Sampled response time and error rate; the provider's quota as a token bucket on rate plus an optional in-flight cap, both answered with 429; billed per call; no capacity of your own to scale |
 | Call edge | Timeout, retries, circuit breaker, connection pool | Exponential backoff + full jitter; retry budget; three-state breaker; a pool per caller instance, counted against the database connection limit |
+
+**The utilization bar on a card.** A service card's bar shows whichever of CPU and threads is busier, the resource that runs out first. When threads are the bottleneck and the CPU sits well below (by 15 points or more), both figures are shown, such as "Threads 100% · CPU 12%": the threads are waiting on something downstream, not busy computing. The Utilization chart under System metrics follows the same rule: such a service gets a dashed line in the same color for its CPU, with the solid line labelled threads, shown while the gap appeared in the last minute.
 
 When a caller times out, the callee keeps working. The **wasted work** metric counts exactly that, and it is the root of retry storms and metastable failures.
 

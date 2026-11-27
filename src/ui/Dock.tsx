@@ -87,10 +87,19 @@ function SystemCharts() {
     const top = new Set(cands.slice().sort((a, b) => peak(b.id) - peak(a.id)).slice(0, 6).map((n) => n.id));
     return cands.filter((n) => top.has(n.id));
   }, [topology.nodes, recent]);
-  const util = useMemo(() => utilNodes.map((n, i) => ({
-    key: n.id, label: n.name, color: series[i % series.length],
-    values: recent.map((s) => { const v = s.nodes[n.id]; return v ? Math.max(v.util, v.cpu) * 100 : null; }),
-  })), [utilNodes, recent, series]);
+  const util = useMemo(() => utilNodes.flatMap((n, i) => {
+    const color = series[i % series.length];
+    const line = { key: n.id, label: n.name, color, values: recent.map((s) => { const v = s.nodes[n.id]; return v ? Math.max(v.util, v.cpu) * 100 : null; }) };
+    // a service held up by its threads while its CPU sits well below (as on its card): add its CPU as
+    // a dashed line in the same color, kept while that happened in the last minute
+    const threadBound = n.type === 'service' && recent.slice(-60).some((s) => { const v = s.nodes[n.id]; return !!v && v.util - v.cpu >= 0.15; });
+    if (!threadBound) return [line];
+    // with the CPU beside it, say what the solid line is: the threads
+    return [{ ...line, label: `${n.name} ${t('线程', 'threads')}` }, {
+      key: `${n.id}:cpu`, label: `${n.name} CPU`, color, dash: [4, 4], width: 1.5,
+      values: recent.map((s) => { const v = s.nodes[n.id]; return v ? v.cpu * 100 : null; }),
+    }];
+  }), [utilNodes, recent, series, t]);
 
   const causeKeys = useMemo(() => {
     const tot: Record<string, number> = {};
@@ -109,7 +118,7 @@ function SystemCharts() {
     <div className="charts">
       <TimeChart title={t('端到端延迟（每秒）', 'End-to-end latency (per second)')} x={x} series={lat} unit="ms" height={chartH} />
       <TimeChart title={t('用户请求结果', 'User request outcomes')} x={x} series={reqs} unit="/s" height={chartH} />
-      <TimeChart title={t('资源利用率（取线程、CPU 中较高者）', 'Utilization (higher of threads and CPU)')} x={x} series={util} unit="%" yMin={0} yMax={100} height={chartH} />
+      <TimeChart title={t('资源利用率（取线程、CPU 中较高者；虚线是 CPU）', 'Utilization (higher of threads and CPU; dashed: CPU)')} x={x} series={util} unit="%" yMin={0} yMax={100} height={chartH} />
       {causes.length > 0
         ? <TimeChart title={t('用户请求失败原因', 'Why user requests fail')} x={x} series={causes} unit="/s" height={chartH} />
         : <TimeChart title={t('重试放大系数（所有调用尝试 ÷ 首次调用）', 'Retry amplification (all attempts ÷ first attempts)')} x={x} series={amp} unit="x" yMin={1} height={chartH} />}

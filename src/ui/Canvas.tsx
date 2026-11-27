@@ -155,9 +155,9 @@ const SimNode = memo(function SimNode({ id, data, selected }: NodeProps<SimNodeT
         ))}
       </dl>
       {ul && (
-        <div className="sn-util" title={t(`${ul.kind}利用率`, `${ul.kind} utilization`)}>
+        <div className="sn-util" title={ul.also ? t(`${ul.kind}利用率 ${fmtPct(ul.value)}，${ul.also.kind} ${fmtPct(ul.also.value)}：线程在等下游，CPU 并不忙`, `${ul.kind} ${fmtPct(ul.value)}, ${ul.also.kind} ${fmtPct(ul.also.value)}: threads are waiting on something downstream, not busy computing`) : t(`${ul.kind}利用率`, `${ul.kind} utilization`)}>
           <div className="sn-util-track"><div className="sn-util-fill" style={{ width: `${Math.min(100, ul.value * 100)}%` }} /></div>
-          <span>{ul.kind} {fmtPct(ul.value)}</span>
+          <span>{ul.kind} {fmtPct(ul.value)}{ul.also && <span className="sn-util-also"> · {ul.also.kind} {fmtPct(ul.also.value)}</span>}</span>
         </div>
       )}
       {pods.length > 0 && (

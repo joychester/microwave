@@ -130,8 +130,8 @@ export const lesson04: Lesson = {
       kind: 'do',
       title: L('运行并观察', 'Run it and look'),
       body: L(
-        '点"运行"，观察 20 秒。留意微服务卡片底部的条：它显示 CPU 和线程里更忙的那个。',
-        'Press Run and watch for 20 seconds. Look at the bar at the bottom of the service card: it shows whichever is busier, CPU or threads.',
+        '点"运行"，观察 20 秒。留意微服务卡片底部的条：它显示 CPU 和线程里更忙的那个；如果是线程更忙，旁边还会写出 CPU 是多少。',
+        'Press Run and watch for 20 seconds. Look at the bar at the bottom of the service card: it shows whichever is busier, CPU or threads; when it is threads, the CPU figure is shown beside it.',
       ),
       highlight: (c) => (c.running ? null : '[data-learn="run"]'),
       check: (c) => rps(c) === LOAD && pool(c) === SMALL && !slowFault(c),
