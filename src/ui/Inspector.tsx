@@ -336,7 +336,7 @@ function EdgeInspector({ edge }: { edge: EdgeCfg }) {
           <div className="ins-title">{from?.name} → {to?.name}</div>
           <p className="ins-sub">{role}</p>
         </div>
-        {!edgeLocked && <button type="button" className="icon-btn" title={t('删除连线', 'Delete edge')} aria-label={t('删除连线', 'Delete edge')} onClick={() => removeEdges([edge.id])}><TrashIcon /></button>}
+        {!edgeLocked && <button type="button" className="icon-btn" data-learn="del-edge" title={t('删除连线', 'Delete edge')} aria-label={t('删除连线', 'Delete edge')} onClick={() => removeEdges([edge.id])}><TrashIcon /></button>}
       </header>
       {edgeLocked && <p className="lock-note">{t('本关不能修改这条连线。', 'This edge is locked in this level.')}</p>}
       {w.length > 0 && (

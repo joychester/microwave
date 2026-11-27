@@ -169,10 +169,11 @@ function measure(from: number): Measure {
     req += x.sys.req; ok += x.sys.ok; done += d; latSum += x.sys.mean * d;
     if (svc) cpu += x.nodes[svc.id]?.cpu ?? 0;
     for (const [id, ns] of Object.entries(x.nodes)) {
-      const a = (nodes[id] ??= { util: 0, cpu: 0, lat: 0, conns: 0, arr: 0, hit: 0, inst: 0, instMax: 0, latW: 0, hitN: 0 });
+      const a = (nodes[id] ??= { util: 0, cpu: 0, lat: 0, conns: 0, arr: 0, hit: 0, inst: 0, instMax: 0, err: 0, lag: 0, out: 0, latW: 0, hitN: 0 });
       const running = ns.instances + (ns.extra.starting ?? 0);
       a.inst += running; a.instMax = Math.max(a.instMax, running);
       a.util += ns.util; a.cpu += ns.cpu; a.conns += ns.extra.conns ?? 0; a.arr += ns.arr;
+      a.err += ns.err; a.lag += ns.extra.lag ?? 0; a.out += ns.extra.consumed ?? 0;
       const hr = ns.extra.hitRatio;
       if (hr !== undefined && isFinite(hr)) { a.hit += hr; a.hitN++; }
       // latency weighted by completions, ignoring seconds with none
@@ -182,7 +183,7 @@ function measure(from: number): Measure {
     for (const [k, v] of Object.entries(x.sys.causes)) causes[k] = (causes[k] ?? 0) + v;
   }
   const perNode: Record<string, NodeMeasure> = {};
-  for (const [id, a] of Object.entries(nodes)) perNode[id] = { util: a.util / n, cpu: a.cpu / n, lat: a.latW > 0 ? a.lat / a.latW : 0, conns: a.conns / n, arr: a.arr / n, hit: a.hitN > 0 ? a.hit / a.hitN : NaN, inst: a.inst / n, instMax: a.instMax };
+  for (const [id, a] of Object.entries(nodes)) perNode[id] = { util: a.util / n, cpu: a.cpu / n, lat: a.latW > 0 ? a.lat / a.latW : 0, conns: a.conns / n, arr: a.arr / n, hit: a.hitN > 0 ? a.hit / a.hitN : NaN, inst: a.inst / n, instMax: a.instMax, err: a.err / n, lag: a.lag / n, out: a.out / n };
   for (const k of Object.keys(causes)) causes[k] /= n;
   // p95 of every request in the window, not an average of per-second p95s
   const pooled = pooledPct(snaps.map((x) => x.sys.hist));
