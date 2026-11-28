@@ -234,7 +234,7 @@ const FlowEdge = memo(function FlowEdge(props: EdgeProps<FlowEdgeT>) {
   const [path, lx, ly] = getBezierPath({ sourceX, sourceY, targetX: targetX - arrow.inset, targetY, sourcePosition, targetPosition });
   const dur = 1.2;
   const p = data!.cfg.params;
-  const match = data!.fromType === 'gateway' && String(p.match ?? '') ? String(p.match) : '';
+  const match = (data!.fromType === 'gateway' || data!.fromType === 'service') && String(p.match ?? '') ? String(p.match) : '';
   const async = !!p.async;
 
   return (

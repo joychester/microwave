@@ -18,7 +18,11 @@ export interface Measure {
   nodes: Record<string, NodeMeasure>;
   /** Failed requests per second by cause (e.g. pool_timeout, rejected), averaged over the window. */
   causes: Record<string, number>;
+  /** Results kept apart by traffic-source line and request path, keyed "<edgeId>|<path>". */
+  split: Record<string, SplitMeasure>;
 }
+
+export interface SplitMeasure { rps: number; avail: number; p95: number }
 
 export interface NodeMeasure { util: number; cpu: number; lat: number; conns: number; arr: number; hit: number; inst: number; instMax: number; err: number; lag: number; out: number }
 

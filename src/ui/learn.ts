@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import type { Topology } from '../engine/types';
 import { lessonById } from '../learn/lessons';
-import { sweepNext, type LessonCtx, type Measure, type NodeMeasure } from '../learn/types';
+import { sweepNext, type LessonCtx, type Measure, type NodeMeasure, type SplitMeasure } from '../learn/types';
 import { mainService } from '../learn/helpers';
 import { useStore } from './store';
 import { useGame } from './game';
@@ -188,7 +188,16 @@ function measure(from: number): Measure {
   // p95 of every request in the window, not an average of per-second p95s
   const pooled = pooledPct(snaps.map((x) => x.sys.hist));
   const p95 = pooled ? pooled.p95 : snaps.reduce((a, x) => a + x.sys.p95, 0) / n;
-  return { rps: req / n, avg: done > 0 ? latSum / done : 0, p95, avail: done > 0 ? ok / done : 1, cpu: cpu / n, instances: Number(svc?.params.instances ?? 0), nodes: perNode, causes };
+  // the same per traffic-source line and request path
+  const split: Record<string, SplitMeasure> = {};
+  const keys = new Set(snaps.flatMap((x) => Object.keys(x.sys.split ?? {})));
+  for (const k of keys) {
+    const xs = snaps.map((x) => x.sys.split?.[k]).filter((v): v is NonNullable<typeof v> => !!v);
+    const sOk = xs.reduce((a, v) => a + v.ok, 0), sDone = sOk + xs.reduce((a, v) => a + v.fail, 0);
+    const sp = pooledPct(xs.map((v) => v.hist));
+    split[k] = { rps: sDone / n, avail: sDone > 0 ? sOk / sDone : 1, p95: sp ? sp.p95 : NaN };
+  }
+  return { rps: req / n, avg: done > 0 ? latSum / done : 0, p95, avail: done > 0 ? ok / done : 1, cpu: cpu / n, instances: Number(svc?.params.instances ?? 0), nodes: perNode, causes, split };
 }
 
 /** Checks the current step against the store; called on every relevant change. */

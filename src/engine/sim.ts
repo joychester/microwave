@@ -11,6 +11,8 @@ import type {
 } from './types';
 
 type Done = (ok: boolean, cause?: string) => void;
+/** Results of one second for one traffic-source line and request path. */
+interface SplitAcc { ok: number; fail: number; lats: number[] }
 
 interface Req {
   path: string;
@@ -214,7 +216,7 @@ export class Simulator {
   private failures: ActiveFailure[] = [];
   private snapshots: Snapshot[] = [];
   private events: SimEvent[] = [];
-  private sys = { req: 0, ok: 0, fail: 0, lats: [] as number[], causes: {} as Record<string, number>, offered: 0, attempts: 0, first: 0 };
+  private sys = { req: 0, ok: 0, fail: 0, lats: [] as number[], causes: {} as Record<string, number>, offered: 0, attempts: 0, first: 0, split: {} as Record<string, SplitAcc> };
 
   constructor(topo: Topology, seed = 7) {
     this.rng = new Rng(seed);
@@ -635,7 +637,7 @@ export class Simulator {
       run: (inst, release, epoch) => {
         const slow = this.intensity(rt.cfg.id, 'slow');
         const mult = 1 + ((slow.f?.params.multiplier ?? 1) - 1) * slow.v;
-        const S = sample(rt.dist('serviceTime'), this.rng) * mult;
+        const S = sample(rt.dist('serviceTime'), this.rng) * mult * this.pathCost(rt, req.path);
         const f = rt.num('cpuFraction');
         // I/O wait (+ GC pause) is a pure delay; the CPU part queues for a core
         this.at(S * (1 - f) + this.gcDelay(rt, inst), () => {
@@ -651,6 +653,25 @@ export class Simulator {
       },
     };
     this.submit(rt, inst, job);
+  }
+
+  /** A service's processing-time multiplier for a request path ("/search:6,/orders:1"; the longest
+   *  matching prefix wins, 1 when none matches). Lets one service do heavier work for some paths. */
+  private pathCostCache = new Map<string, { src: string; list: { prefix: string; x: number }[] }>();
+  private pathCost(rt: NodeRT, path: string): number {
+    const src = String(rt.p.pathCost ?? '').trim();
+    if (!src) return 1;
+    let c = this.pathCostCache.get(rt.cfg.id);
+    if (!c || c.src !== src) {
+      const list = src.split(',').map((part) => {
+        const [prefix, x] = part.split(':');
+        return { prefix: (prefix ?? '').trim(), x: Number(x) };
+      }).filter((p) => p.prefix && isFinite(p.x) && p.x >= 0).sort((a, b) => b.prefix.length - a.prefix.length);
+      c = { src, list };
+      this.pathCostCache.set(rt.cfg.id, c);
+    }
+    for (const p of c.list) if (path.startsWith(p.prefix)) return p.x;
+    return 1;
   }
 
   // ------------------------------------------------------------ gateway
@@ -946,6 +967,7 @@ export class Simulator {
 
   private fire(rt: NodeRT) {
     const e = this.pickWeighted(this.out.get(rt.cfg.id) ?? []);
+    const path = this.pickPath(rt);
     const t0 = this.now;
     this.sys.offered++;
     rt.acc.arr++;
@@ -961,9 +983,16 @@ export class Simulator {
         this.sys.causes[c] = (this.sys.causes[c] ?? 0) + 1;
         rt.acc.causes[c] = (rt.acc.causes[c] ?? 0) + 1;
       }
+      // the same result, kept apart by the source's outgoing line and the request path
+      if (e) {
+        const k = `${e.cfg.id}|${path}`;
+        const sp = (this.sys.split[k] ??= { ok: 0, fail: 0, lats: [] });
+        sp.lats.push(lat);
+        if (ok) sp.ok++; else sp.fail++;
+      }
     };
     if (!e) { finish(false, 'no_target'); return; }
-    this.callEdge(e, null, { path: this.pickPath(rt) }, finish);
+    this.callEdge(e, null, { path }, finish);
   }
 
   // ------------------------------------------------------------ calls
@@ -981,9 +1010,12 @@ export class Simulator {
         if (--pending === 0) nextGroup();
       };
       const launch: (() => void)[] = [];
-      const choice = g.filter((e) => e.p.choice);
+      // a call with a path prefix is made only for requests on that path (e.g. a monolith calling
+      // search only for /search). Without one, every request makes it, as before.
+      const calls = g.filter((e) => req.path.startsWith(String(e.p.match ?? '')));
+      const choice = calls.filter((e) => e.p.choice);
       const picked = choice.length ? this.pickWeighted(choice) : undefined;
-      for (const e of g) {
+      for (const e of calls) {
         if (e.p.choice && e !== picked) continue;
         if (this.rng.next() >= e.num('probability')) continue;
         pending++;
@@ -1339,10 +1371,14 @@ export class Simulator {
         avail: done > 0 ? s.ok / done : 1,
         amplification: s.first > 0 ? s.attempts / s.first : 1,
         causes: s.causes, offered: s.offered,
+        split: Object.fromEntries(Object.entries(s.split).map(([k, v]) => {
+          const l = v.lats.sort((x, y) => x - y);
+          return [k, { ok: v.ok, fail: v.fail, p50: percentile(l, 0.5), p95: percentile(l, 0.95), mean: l.length ? l.reduce((x, y) => x + y, 0) / l.length : 0, hist: histOfSorted(l) }];
+        })),
       },
       nodes, edges,
     });
-    this.sys = { req: 0, ok: 0, fail: 0, lats: [], causes: {}, offered: 0, attempts: 0, first: 0 };
+    this.sys = { req: 0, ok: 0, fail: 0, lats: [], causes: {}, offered: 0, attempts: 0, first: 0, split: {} };
     // forget long-finished failures
     this.failures = this.failures.filter((f) => f.end === Infinity || this.now < f.end + f.recovery_s * 1000 + 1000);
     this.at(1000, () => this.tickSecond());

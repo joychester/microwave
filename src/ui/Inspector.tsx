@@ -288,7 +288,7 @@ function EdgeInspector({ edge }: { edge: EdgeCfg }) {
   const groups = groupSpecs(EDGE_SPECS, params).map((g) => ({
     ...g,
     items: g.items.filter((s) => {
-      if (s.key === 'match') return from?.type === 'gateway';
+      if (s.key === 'match') return from?.type === 'gateway' || from?.type === 'service';
       if (s.key === 'weight') return showWeight && (siblings.length > 1 || !!params.choice);
       if (s.key === 'choice') return from?.type === 'service' || from?.type === 'cache';
       return true;

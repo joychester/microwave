@@ -111,7 +111,12 @@ export interface SystemSample {
   amplification: number; // all edge attempts / first attempts
   causes: Record<string, number>;
   offered: number; // offered rps (before client retries)
+  /** The same results kept apart by traffic-source line and request path, keyed "<edgeId>|<path>":
+   *  lets you compare, say, /orders through one architecture with /orders through another. */
+  split?: Record<string, SplitSample>;
 }
+
+export interface SplitSample { ok: number; fail: number; p50: number; p95: number; mean: number; hist?: Hist }
 
 export interface Snapshot {
   t: number;
