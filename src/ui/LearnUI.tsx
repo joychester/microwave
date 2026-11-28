@@ -10,17 +10,34 @@ import { lessonCtx, useLearn } from './learn';
 import { useLang, useT } from './i18n';
 import { fmtLatency, fmtPct } from './format';
 
-/** Paragraphs separated by blank lines; lines starting with "•" become a list. */
+/** **bold** spans inside a line. */
+function inline(text: string) {
+  const parts = text.split(/\*\*(.+?)\*\*/);
+  return parts.length === 1 ? text : parts.map((p, i) => (i % 2 ? <strong key={i}>{p}</strong> : p));
+}
+
+/** Paragraphs separated by blank lines; lines starting with "•" become a list, and a paragraph whose
+ *  first line is followed by "•" lines is that line with a list under it. **bold** marks emphasis. */
 function Prose({ text }: { text: string }) {
   const blocks = text.split(/\n\n+/).filter((b) => b.trim());
+  const bullet = (ln: string) => ln.trim().startsWith('•');
+  const list = (lines: string[], key: number) => (
+    <ul key={key} className="lg-list">{lines.map((ln, j) => <li key={j}>{inline(ln.replace(/^\s*•\s*/, ''))}</li>)}</ul>
+  );
   return (
     <>
       {blocks.map((b, i) => {
         const lines = b.split('\n');
-        if (lines.every((ln) => ln.trim().startsWith('•'))) {
-          return <ul key={i} className="lg-list">{lines.map((ln, j) => <li key={j}>{ln.replace(/^\s*•\s*/, '')}</li>)}</ul>;
+        if (lines.every(bullet)) return list(lines, i);
+        if (lines.length > 1 && !bullet(lines[0]) && lines.slice(1).every(bullet)) {
+          return (
+            <div key={i} className="lg-sub">
+              <p className="lg-sub-head">{inline(lines[0])}</p>
+              {list(lines.slice(1), 0)}
+            </div>
+          );
         }
-        return <p key={i}>{b}</p>;
+        return <p key={i}>{inline(b)}</p>;
       })}
     </>
   );

@@ -34,6 +34,9 @@ function fmt(v: number | null | undefined, unit: Props['unit']) {
   return v.toFixed(0);
 }
 
+/** Shared by all time charts so their cursors move together. */
+const SYNC_KEY = 'sim-time';
+
 export function TimeChart({ title, x, series, unit = '', height = 150, yMin, yMax, compact }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const chrome = useChrome();
@@ -53,7 +56,10 @@ export function TimeChart({ title, x, series, unit = '', height = 150, yMin, yMa
       height,
       padding: [8, 8, 0, 0],
       legend: { show: !compact, live: true },
-      cursor: { drag: { x: false, y: false }, points: { size: 7 } },
+      // every chart is on the same simulated-time axis: hovering one moves the cursor on all of them
+      // to the same second (matched by x value), with each legend showing that second's values. The
+      // horizontal line is off, since on the other charts it would sit at a meaningless height.
+      cursor: { drag: { x: false, y: false }, points: { size: 7 }, y: false, sync: { key: SYNC_KEY, scales: ['x', null] } },
       scales: {
         x: { time: false },
         y: { range: (_u, min, max) => [yMin ?? Math.min(0, min), yMax ?? Math.max(max * 1.15, yMin !== undefined ? yMin + 1 : 1)] },

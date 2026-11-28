@@ -1031,6 +1031,9 @@ fieldset.pf:disabled * { cursor: not-allowed; }
 .lg-dots i.is-on { background: var(--select); }
 .lg-title { font-size: 15px; font-weight: 700; margin: 0 0 6px; }
 .lg-body p, .lg-feedback p { margin: 0 0 8px; }
+.lg-sub { margin: 0 0 8px; }
+.lg-sub .lg-sub-head { margin: 0 0 2px; }
+.lg-sub .lg-list { margin-top: 0; }
 .lg-list { margin: 0 0 8px; padding-left: 18px; }
 .lg-list li { margin-bottom: 4px; }
 .lg-options { display: grid; gap: 6px; margin: 4px 0 6px; }
