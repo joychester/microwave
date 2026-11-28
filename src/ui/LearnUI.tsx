@@ -10,6 +10,13 @@ import { lessonCtx, useLearn } from './learn';
 import { useLang, useT } from './i18n';
 import { fmtLatency, fmtPct } from './format';
 
+/** How long the lessons take, from the shortest to the longest, e.g. "8–16". */
+const MIN_RANGE = (() => {
+  const ms = LESSONS.map((l) => l.minutes);
+  const lo = Math.min(...ms), hi = Math.max(...ms);
+  return lo === hi ? `${lo}` : `${lo}–${hi}`;
+})();
+
 /** **bold** spans inside a line. */
 function inline(text: string) {
   const parts = text.split(/\*\*(.+?)\*\*/);
@@ -74,7 +81,7 @@ export function LearnHub() {
           <div>
             <h2 id="learn-h">{t('学习', 'Learn')}</h2>
             <p>{tab === 'lessons'
-              ? t('一课一个概念，跟着步骤动手做。每课 5–10 分钟，建议按顺序学。', 'One idea per lesson, learned by doing. Each takes 5–10 minutes; going in order works best.')
+              ? t(`每课一个主题：先预测，再动手，看实测数字。每课 ${MIN_RANGE} 分钟，建议按顺序学。`, `One topic per lesson: predict, try it, see the numbers. Each takes ${MIN_RANGE} minutes; going in order works best.`)
               : t('没有提示，自己诊断：守住 SLO，控制成本，在故障中活下来。每关最多 3 颗星。', 'No hints: diagnose it yourself. Hold the SLO, keep costs down, survive the outages. Up to 3 stars per level.')}</p>
           </div>
           <button type="button" className="btn btn--ghost" onClick={dismiss}>{inSelect ? t('返回工作台', 'Back to the workbench') : t('关闭', 'Close')}</button>
