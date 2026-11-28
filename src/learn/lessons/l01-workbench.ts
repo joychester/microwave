@@ -56,8 +56,8 @@ export const lesson01: Lesson = {
       kind: 'do',
       title: L('设置运行时长', 'Set the run length'),
       body: L(
-        '运行之前，先认识顶栏的两个设置。\n\n顶栏中间的时钟显示"已运行 / 运行时长"。运行时长决定一次测试跑多久（按仿真时间算）：时间一到会自动停止，并在底部生成一份运行报告。课程开始时默认是 30 分钟。点一下时钟，把运行时长改成 10 分钟，用来观察结果已经足够。\n\n如果课程做到一半，运行到时自动停了，再点"运行"就会开始下一次运行，课程可以接着做。',
-        'Before running, get to know two settings in the top bar.\n\nThe clock in the middle shows "elapsed / run length". The run length is how long one test runs, in simulated time: when it is up the run stops on its own and writes a run report at the bottom. Lessons start with 30 minutes. Click the clock and set the run length to 10 minutes, which is plenty to see the results.\n\nIf a run stops on time halfway through the lesson, press Run again: a new run starts and the lesson carries on.',
+        '运行之前，先认识顶栏的两个设置。\n\n顶栏中间的时钟显示"已运行 / 运行时长"。**运行时长决定一次测试跑多久**（按仿真时间算）：时间一到会自动停止，并在底部生成一份运行报告。课程开始时默认是 30 分钟。点一下时钟，把运行时长改成 10 分钟，用来观察结果已经足够。\n\n如果课程做到一半，运行到时自动停了，再点"运行"就会开始下一次运行，课程可以接着做。',
+        'Before running, get to know two settings in the top bar.\n\nThe clock in the middle shows "elapsed / run length". **The run length is how long one test runs**, in simulated time: when it is up the run stops on its own and writes a run report at the bottom. Lessons start with 30 minutes. Click the clock and set the run length to 10 minutes, which is plenty to see the results.\n\nIf a run stops on time halfway through the lesson, press Run again: a new run starts and the lesson carries on.',
       ),
       // the clock's menu, once it is open; otherwise the clock itself
       highlight: (c) => (c.duration === 600 ? null : typeof document !== 'undefined' && document.querySelector('[data-learn="dur-600"]') ? '[data-learn="dur-600"]' : '[data-learn="clock"]'),
@@ -72,8 +72,8 @@ export const lesson01: Lesson = {
       kind: 'do',
       title: L('设置仿真速度', 'Set the simulation speed'),
       body: L(
-        '时钟左边的 1× 2× 5× 10× 20× 是仿真速度：真实的 1 秒里，仿真走几秒。1× 和真实时间一样快；5× 时，10 分钟的测试真实只要 2 分钟。\n\n速度只影响你要等多久，不影响结果：同样的配置，用 1× 和 5× 跑出来的指标基本一样。速度太快时浏览器可能跟不上，时钟旁会显示实际达到的倍数。\n\n现在是 1×。把它改成 5×，更快看到运行状态和结果。',
-        'The 1× 2× 5× 10× 20× buttons left of the clock set the simulation speed: how many simulated seconds pass in one real second. 1× runs in real time; at 5×, a 10-minute test takes 2 real minutes.\n\nSpeed only changes how long you wait, not the results: the same setup gives essentially the same numbers at 1× and at 5×. If the speed is too high for the browser, the clock shows the speed it actually reached.\n\nIt is at 1× now. Switch to 5× to see the run and its results sooner.',
+        '时钟左边的 1× 2× 5× 10× 20× 是**仿真速度：真实的 1 秒里，仿真走几秒**。1× 和真实时间一样快；5× 时，10 分钟的测试真实只要 2 分钟。\n\n**速度只影响你要等多久，不影响结果**：同样的配置，用 1× 和 5× 跑出来的指标基本一样。速度太快时浏览器可能跟不上，时钟旁会显示实际达到的倍数。\n\n现在是 1×。把它改成 5×，更快看到运行状态和结果。',
+        'The 1× 2× 5× 10× 20× buttons left of the clock set the **simulation speed: how many simulated seconds pass in one real second**. 1× runs in real time; at 5×, a 10-minute test takes 2 real minutes.\n\n**Speed only changes how long you wait, not the results**: the same setup gives essentially the same numbers at 1× and at 5×. If the speed is too high for the browser, the clock shows the speed it actually reached.\n\nIt is at 1× now. Switch to 5× to see the run and its results sooner.',
       ),
       highlight: (c) => (c.speed === 5 ? null : '[data-learn="speed-5"]'),
       check: (c) => c.speed === 5,
@@ -87,8 +87,8 @@ export const lesson01: Lesson = {
       kind: 'predict',
       title: L('先预测', 'Predict first'),
       body: L(
-        'p95 延迟的意思是：95% 的请求比它快，只有最慢的 5% 比它慢。运行之前先猜一下：p95 大约是平均延迟的几倍？',
-        'p95 latency means 95% of requests are faster than it and only the slowest 5% are slower. Before running, guess: how many times the average latency will p95 be?',
+        '**p95 延迟的意思是：95% 的请求比它快，只有最慢的 5% 比它慢**。运行之前先猜一下：p95 大约是平均延迟的几倍？',
+        '**p95 latency means 95% of requests are faster than it and only the slowest 5% are slower**. Before running, guess: how many times the average latency will p95 be?',
       ),
       options: P95_OPTIONS,
     },
@@ -112,8 +112,8 @@ export const lesson01: Lesson = {
         if (!m) return L('', '');
         const k = ratio(m);
         return {
-          zh: `每秒处理约 ${fmtRate(m.rps)} 个请求，可用性 ${fmtAvail(m.avail)}，平均延迟 ${fmtLatency(m.avg)}，p95 ${fmtLatency(m.p95)}，约为平均的 ${x(k)}。${reveal(c, 'predict-p95', k, P95_OPTIONS).zh}\n\n为什么差这么多？每个请求的处理时间本来就不一样：大部分很快，少数很慢（长尾）。平均值会把这些慢请求"摊平"藏起来，所以 SLO 通常用 p95 或 p99 来定。\n\n先点顶栏闪烁的"暂停"（就是刚才的"运行"按钮），让数字停下来慢慢读。暂停时所有数字停在当前这一刻，运行时长也不消耗；之后需要时点"继续"，仿真从停下的地方接着跑。按空格键也可以暂停或继续。`,
-          en: `About ${fmtRate(m.rps)} requests/s, availability ${fmtAvail(m.avail)}, average latency ${fmtLatency(m.avg)}, p95 ${fmtLatency(m.p95)}: about ${x(k)} the average. ${reveal(c, 'predict-p95', k, P95_OPTIONS).en}\n\nWhy the gap? Processing times vary: most requests are fast and a few are slow (the long tail). An average smooths those slow requests away, which is why SLOs are usually set on p95 or p99.\n\nFirst press the flashing Pause in the top bar (the button that said Run) so the numbers hold still while you read. While paused every number stays put and the run length stops counting down; press Resume later and the simulation carries on from where it stopped. The space bar pauses and resumes, too.`,
+          zh: `每秒处理约 ${fmtRate(m.rps)} 个请求，可用性 ${fmtAvail(m.avail)}，平均延迟 ${fmtLatency(m.avg)}，p95 ${fmtLatency(m.p95)}，约为平均的 ${x(k)}。${reveal(c, 'predict-p95', k, P95_OPTIONS).zh}\n\n为什么差这么多？每个请求的处理时间本来就不一样：大部分很快，少数很慢（长尾）。**平均值会把这些慢请求"摊平"藏起来，所以 SLO 通常用 p95 或 p99 来定**。\n\n先点顶栏闪烁的"暂停"（就是刚才的"运行"按钮），让数字停下来慢慢读。暂停时所有数字停在当前这一刻，运行时长也不消耗；之后需要时点"继续"，仿真从停下的地方接着跑。按空格键也可以暂停或继续。`,
+          en: `About ${fmtRate(m.rps)} requests/s, availability ${fmtAvail(m.avail)}, average latency ${fmtLatency(m.avg)}, p95 ${fmtLatency(m.p95)}: about ${x(k)} the average. ${reveal(c, 'predict-p95', k, P95_OPTIONS).en}\n\nWhy the gap? Processing times vary: most requests are fast and a few are slow (the long tail). **An average smooths those slow requests away, which is why SLOs are usually set on p95 or p99**.\n\nFirst press the flashing Pause in the top bar (the button that said Run) so the numbers hold still while you read. While paused every number stays put and the run length stops counting down; press Resume later and the simulation carries on from where it stopped. The space bar pauses and resumes, too.`,
         };
       },
     },
@@ -165,8 +165,8 @@ export const lesson01: Lesson = {
         if (!a || !b) return L('', '');
         const cpuX = b.cpu / Math.max(a.cpu, 1e-6), latX = b.avg / Math.max(a.avg, 1e-6);
         return {
-          zh: `CPU 从 ${fmtPct(a.cpu)} 升到 ${fmtPct(b.cpu)}（约 ${x(cpuX)}）。${reveal(c, 'predict-cpu', b.cpu, CPU_OPTIONS).zh}\n\n再看延迟：平均从 ${fmtLatency(a.avg)} 变成 ${fmtLatency(b.avg)}，约 ${x(latX)}。资源只紧张了 ${x(cpuX)}，延迟却涨了 ${x(latX)}，两者不是线性关系。为什么会这样，第 2 课专门讲。`,
-          en: `CPU went from ${fmtPct(a.cpu)} to ${fmtPct(b.cpu)} (about ${x(cpuX)}). ${reveal(c, 'predict-cpu', b.cpu, CPU_OPTIONS).en}\n\nNow the latency: the average went from ${fmtLatency(a.avg)} to ${fmtLatency(b.avg)}, about ${x(latX)}. Resources got ${x(cpuX)} tighter, but latency grew ${x(latX)}: the two don't move in proportion. Lesson 2 explains why.`,
+          zh: `CPU 从 ${fmtPct(a.cpu)} 升到 ${fmtPct(b.cpu)}（约 ${x(cpuX)}）。${reveal(c, 'predict-cpu', b.cpu, CPU_OPTIONS).zh}\n\n再看延迟：平均从 ${fmtLatency(a.avg)} 变成 ${fmtLatency(b.avg)}，约 ${x(latX)}。资源只紧张了 ${x(cpuX)}，延迟却涨了 ${x(latX)}，**两者不是线性关系**。为什么会这样，第 2 课专门讲。`,
+          en: `CPU went from ${fmtPct(a.cpu)} to ${fmtPct(b.cpu)} (about ${x(cpuX)}). ${reveal(c, 'predict-cpu', b.cpu, CPU_OPTIONS).en}\n\nNow the latency: the average went from ${fmtLatency(a.avg)} to ${fmtLatency(b.avg)}, about ${x(latX)}. Resources got ${x(cpuX)} tighter, but latency grew ${x(latX)}: **the two don't move in proportion**. Lesson 2 explains why.`,
         };
       },
     },
@@ -188,8 +188,8 @@ export const lesson01: Lesson = {
         if (!a || !b) return L('', '');
         const errs = b.avail < 0.99;
         return {
-          zh: `p95 从 ${fmtLatency(a.p95)} 涨到 ${fmtLatency(b.p95)}，CPU 也从 ${fmtPct(a.cpu)} 涨到 ${fmtPct(b.cpu)}。${errs ? `可用性掉到了 ${fmtAvail(b.avail)}：CPU 不够用，请求开始失败。` : ''}\n\n"变慢"代表代码回归或者依赖变慢。每个请求占用 CPU 的时间变长了，同样的流量就要吃掉更多容量。所以变慢不只是延迟问题，也是容量问题：倍数再大一点，CPU 就会打满，开始出错。`,
-          en: `p95 went from ${fmtLatency(a.p95)} to ${fmtLatency(b.p95)}, and CPU from ${fmtPct(a.cpu)} to ${fmtPct(b.cpu)}. ${errs ? `Availability fell to ${fmtAvail(b.avail)}: there isn't enough CPU, so requests start to fail.` : ''}\n\nA slowdown stands for a code regression or a slower dependency. Each request holds the CPU longer, so the same traffic uses more capacity. A slowdown is a capacity problem, not only a latency one: a slightly bigger multiplier would max out the CPU and errors would start.`,
+          zh: `p95 从 ${fmtLatency(a.p95)} 涨到 ${fmtLatency(b.p95)}，CPU 也从 ${fmtPct(a.cpu)} 涨到 ${fmtPct(b.cpu)}。${errs ? `可用性掉到了 ${fmtAvail(b.avail)}：CPU 不够用，请求开始失败。` : ''}\n\n"变慢"代表代码回归或者依赖变慢。每个请求占用 CPU 的时间变长了，同样的流量就要吃掉更多容量。所以**变慢不只是延迟问题，也是容量问题**：倍数再大一点，CPU 就会打满，开始出错。`,
+          en: `p95 went from ${fmtLatency(a.p95)} to ${fmtLatency(b.p95)}, and CPU from ${fmtPct(a.cpu)} to ${fmtPct(b.cpu)}. ${errs ? `Availability fell to ${fmtAvail(b.avail)}: there isn't enough CPU, so requests start to fail.` : ''}\n\nA slowdown stands for a code regression or a slower dependency. Each request holds the CPU longer, so the same traffic uses more capacity. **A slowdown is a capacity problem, not only a latency one**: a slightly bigger multiplier would max out the CPU and errors would start.`,
         };
       },
     },
@@ -230,8 +230,8 @@ export const lesson01: Lesson = {
         const durEn = mins ? `${mins} min ${secs} s` : `${secs} s`;
         const slo = Math.round(r.sloSeconds);
         return {
-          zh: `这次运行跑了 ${durZh}，可用性 ${fmtAvail(r.avail)}，平均延迟 ${fmtLatency(r.latAvg)}，${r.pct} ${fmtLatency(r.pctAll)}，其中 ${slo} 秒达到了 SLO。\n\n报告和顶栏的区别：顶栏是最近 5 秒，报告统计的是整次运行的所有请求。${r.editedMidRun ? '\n\n报告里有一条"注意：运行中改过参数"。你在这次运行里改过实例数，所以这份结果是几种配置混在一起的。做实验时，一次运行只改一个变量，结果才好对比。' : ''}\n\n往下看，"组件"表列出每个组件的峰值利用率和失败数，"失败原因"说明请求为什么失败。同一个拓扑再跑一次，就能在报告顶部选择和这一次对比，报告会列出两次之间改了哪些配置。报告还可以复制或导出成 Markdown，贴到文档里。`,
-          en: `This run lasted ${durEn}: availability ${fmtAvail(r.avail)}, average latency ${fmtLatency(r.latAvg)}, ${r.pct} ${fmtLatency(r.pctAll)}, and ${slo} seconds met the SLO.\n\nThe report differs from the top bar: the top bar shows the last 5 seconds, the report covers every request in the whole run.${r.editedMidRun ? '\n\nThe report carries a note: "parameters were edited during this run". You changed the instances during this run, so the result mixes several setups. When you experiment, change one thing per run so the results are easy to compare.' : ''}\n\nFurther down, the Components table lists each component\'s peak utilization and failures, and Failure causes explain why requests failed. Run the same topology again and you can compare it with this run at the top of the report, including what configuration changed between the two. You can also copy or export the report as Markdown to paste into a document.`,
+          zh: `这次运行跑了 ${durZh}，可用性 ${fmtAvail(r.avail)}，平均延迟 ${fmtLatency(r.latAvg)}，${r.pct} ${fmtLatency(r.pctAll)}，其中 ${slo} 秒达到了 SLO。\n\n报告和顶栏的区别：顶栏是最近 5 秒，报告统计的是整次运行的所有请求。${r.editedMidRun ? '\n\n报告里有一条"注意：运行中改过参数"。你在这次运行里改过实例数，所以这份结果是几种配置混在一起的。做实验时，**一次运行只改一个变量，结果才好对比**。' : ''}\n\n往下看，"组件"表列出每个组件的峰值利用率和失败数，"失败原因"说明请求为什么失败。同一个拓扑再跑一次，就能在报告顶部选择和这一次对比，报告会列出两次之间改了哪些配置。报告还可以复制或导出成 Markdown，贴到文档里。`,
+          en: `This run lasted ${durEn}: availability ${fmtAvail(r.avail)}, average latency ${fmtLatency(r.latAvg)}, ${r.pct} ${fmtLatency(r.pctAll)}, and ${slo} seconds met the SLO.\n\nThe report differs from the top bar: the top bar shows the last 5 seconds, the report covers every request in the whole run.${r.editedMidRun ? '\n\nThe report carries a note: "parameters were edited during this run". You changed the instances during this run, so the result mixes several setups. When you experiment, **change one thing per run so the results are easy to compare**.' : ''}\n\nFurther down, the Components table lists each component\'s peak utilization and failures, and Failure causes explain why requests failed. Run the same topology again and you can compare it with this run at the top of the report, including what configuration changed between the two. You can also copy or export the report as Markdown to paste into a document.`,
         };
       },
     },
@@ -240,8 +240,8 @@ export const lesson01: Lesson = {
       kind: 'read',
       title: L('小结', 'Wrap-up'),
       body: L(
-        '你已经会搭系统、设置运行、读指标、改参数、注入故障和看报告了。记住三点：\n\n• 看系统要同时看流量、错误、延迟分位数和利用率，只看一个会被误导。\n• 平均延迟会藏起慢请求，SLO 要看 p95 或 p99。\n• 实例减到 1 个时，CPU 只升了 3 倍，延迟却涨了好几倍。这就是第 2 课的主题：排队与利用率。',
-        'You can now build a system, set up and run it, read the metrics, change parameters, inject faults and read the report. Three things to remember:\n\n• Look at traffic, errors, latency percentiles and utilization together; any one alone can mislead you.\n• Averages hide slow requests; set SLOs on p95 or p99.\n• With one instance, CPU only tripled but latency grew several times over. That is the subject of lesson 2: queueing and utilization.',
+        '你已经会搭系统、设置运行、读指标、改参数、注入故障和看报告了。记住三点：\n\n• **看系统要同时看流量、错误、延迟分位数和利用率**，只看一个会被误导。\n• **平均延迟会藏起慢请求**，SLO 要看 p95 或 p99。\n• **实例减到 1 个时，CPU 只升了 3 倍，延迟却涨了好几倍**。这就是第 2 课的主题：排队与利用率。',
+        'You can now build a system, set up and run it, read the metrics, change parameters, inject faults and read the report. Three things to remember:\n\n• **Look at traffic, errors, latency percentiles and utilization together**; any one alone can mislead you.\n• **Averages hide slow requests**; set SLOs on p95 or p99.\n• **With one instance, CPU only tripled but latency grew several times over**. That is the subject of lesson 2: queueing and utilization.',
       ),
     },
   ],

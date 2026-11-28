@@ -186,8 +186,8 @@ export const lesson07: Lesson = {
         if (!s) return L('', '');
         const x = catArr(s, c) / LOAD;
         return {
-          zh: `可用性 ${fmtAvail(s.avail)}，p95 ${fmtLatency(s.p95)}。${reveal(c, 'predict-slow', s.avail, SLOW_OPTIONS).zh}\n\n用户还是每秒 ${LOAD} 个请求，商品服务却每秒收到 ${Math.round(catArr(s, c))} 个，是平时的 ${x.toFixed(1)} 倍，CPU 打满到 ${fmtPct(catCpu(s, c))}。这就是重试风暴。`,
-          en: `Availability ${fmtAvail(s.avail)}, p95 ${fmtLatency(s.p95)}. ${reveal(c, 'predict-slow', s.avail, SLOW_OPTIONS).en}\n\nUsers still send ${LOAD} requests a second, yet Catalog receives ${Math.round(catArr(s, c))}: ${x.toFixed(1)}× normal, its CPU maxed at ${fmtPct(catCpu(s, c))}. This is a retry storm.`,
+          zh: `可用性 ${fmtAvail(s.avail)}，p95 ${fmtLatency(s.p95)}。${reveal(c, 'predict-slow', s.avail, SLOW_OPTIONS).zh}\n\n用户还是每秒 ${LOAD} 个请求，商品服务却每秒收到 ${Math.round(catArr(s, c))} 个，是平时的 ${x.toFixed(1)} 倍，CPU 打满到 ${fmtPct(catCpu(s, c))}。**这就是重试风暴**。`,
+          en: `Availability ${fmtAvail(s.avail)}, p95 ${fmtLatency(s.p95)}. ${reveal(c, 'predict-slow', s.avail, SLOW_OPTIONS).en}\n\nUsers still send ${LOAD} requests a second, yet Catalog receives ${Math.round(catArr(s, c))}: ${x.toFixed(1)}× normal, its CPU maxed at ${fmtPct(catCpu(s, c))}. **This is a retry storm**.`,
         };
       },
     },
@@ -196,8 +196,8 @@ export const lesson07: Lesson = {
       kind: 'read',
       title: L('风暴是怎么起来的', 'How the storm starts'),
       body: L(
-        `商品服务变慢后，它的 p95 升到 250ms 左右，而订单服务只等 ${TIGHT}ms。于是：\n\n• 一部分本来能成功的请求被判超时。可商品服务已经做了这份工作，白做了。\n• 订单服务马上重试，商品服务多了一份工作，变得更慢，更多请求超时，更多重试……这是一个自我加强的循环。\n• 两层重试还会相乘：用户最多发 ${CLIENT_ATTEMPTS} 次，每次订单服务最多试 ${INNER_ATTEMPTS} 次，一个用户请求最坏会变成 ${CLIENT_ATTEMPTS} × ${INNER_ATTEMPTS} = ${CLIENT_ATTEMPTS * INNER_ATTEMPTS} 次商品服务调用。\n\n本来只是"慢一点"，被重试放大成了"全挂"。重试只该对付偶发的、短暂的失败；下游整体变慢时，重试只会火上浇油。\n\n还有一点：风暴一旦起来，就算马上把配置改对，堆积的请求和重试也可能让它自己再维持好一阵。线上处理时通常要先限流或暂时摘掉流量，让系统喘口气。`,
-        `Once Catalog slows down, its p95 rises to about 250ms, but Orders only waits ${TIGHT}ms. So:\n\n• Some requests that would have succeeded are declared timed out, even though Catalog already did the work, now wasted.\n• Orders retries at once; Catalog has more work, gets slower, more requests time out, more retries… a loop that feeds itself.\n• Retries at two layers multiply: users try up to ${CLIENT_ATTEMPTS} times, and each time Orders tries up to ${INNER_ATTEMPTS} times, so one user request can become ${CLIENT_ATTEMPTS} × ${INNER_ATTEMPTS} = ${CLIENT_ATTEMPTS * INNER_ATTEMPTS} calls to Catalog.\n\nWhat was only "a bit slower" is amplified into "all down". Retries are for occasional, brief failures; when a dependency is slow across the board, they pour fuel on the fire.\n\nOne more thing: once a storm is raging, even fixing the settings at once may not end it; the piled-up requests and retries can keep it going for a good while. In production you usually shed load or take traffic away first, to let the system breathe.`,
+        `商品服务变慢后，它的 p95 升到 250ms 左右，而订单服务只等 ${TIGHT}ms。于是：\n\n• 一部分本来能成功的请求被判超时。可商品服务已经做了这份工作，**白做了**。\n• 订单服务马上重试，商品服务多了一份工作，变得更慢，更多请求超时，更多重试……**这是一个自我加强的循环**。\n• **两层重试还会相乘**：用户最多发 ${CLIENT_ATTEMPTS} 次，每次订单服务最多试 ${INNER_ATTEMPTS} 次，一个用户请求最坏会变成 ${CLIENT_ATTEMPTS} × ${INNER_ATTEMPTS} = ${CLIENT_ATTEMPTS * INNER_ATTEMPTS} 次商品服务调用。\n\n本来只是"慢一点"，被重试放大成了"全挂"。**重试只该对付偶发的、短暂的失败；下游整体变慢时，重试只会火上浇油**。\n\n还有一点：风暴一旦起来，**就算马上把配置改对，堆积的请求和重试也可能让它自己再维持好一阵**，这就是第 5 课见过的**亚稳态故障**。线上处理时通常要先限流或暂时摘掉流量，让系统喘口气。`,
+        `Once Catalog slows down, its p95 rises to about 250ms, but Orders only waits ${TIGHT}ms. So:\n\n• Some requests that would have succeeded are declared timed out, even though Catalog already did the work, **now wasted**.\n• Orders retries at once; Catalog has more work, gets slower, more requests time out, more retries… **a loop that feeds itself**.\n• **Retries at two layers multiply**: users try up to ${CLIENT_ATTEMPTS} times, and each time Orders tries up to ${INNER_ATTEMPTS} times, so one user request can become ${CLIENT_ATTEMPTS} × ${INNER_ATTEMPTS} = ${CLIENT_ATTEMPTS * INNER_ATTEMPTS} calls to Catalog.\n\nWhat was only "a bit slower" is amplified into "all down". **Retries are for occasional, brief failures; when a dependency is slow across the board, they pour fuel on the fire**.\n\nOne more thing: once a storm is raging, **even fixing the settings at once may not end it**; the piled-up requests and retries can keep it going for a good while. This is the **metastable failure** from lesson 5. In production you usually shed load or take traffic away first, to let the system breathe.`,
       ),
     },
     {
@@ -223,8 +223,8 @@ export const lesson07: Lesson = {
         const s = m(c, 'storm'), f = m(c, 'fixto');
         if (!s || !f) return L('', '');
         return {
-          zh: `可用性回到 ${fmtAvail(f.avail)}，p95 ${fmtLatency(f.p95)}（刚才 ${fmtAvail(s.avail)}）。商品服务每秒收到 ${Math.round(catArr(f, c))} 个请求，回到正常，CPU ${fmtPct(catCpu(f, c))}：慢，但扛得住。重试设置一点没改，只是不再被错误地触发。`,
-          en: `Availability is back to ${fmtAvail(f.avail)}, p95 ${fmtLatency(f.p95)} (was ${fmtAvail(s.avail)}). Catalog gets ${Math.round(catArr(f, c))} requests a second, back to normal, at ${fmtPct(catCpu(f, c))} CPU: slow, but coping. The retry settings didn't change at all; they just aren't triggered by mistake any more.`,
+          zh: `可用性回到 ${fmtAvail(f.avail)}，p95 ${fmtLatency(f.p95)}（刚才 ${fmtAvail(s.avail)}）。商品服务每秒收到 ${Math.round(catArr(f, c))} 个请求，回到正常，CPU ${fmtPct(catCpu(f, c))}：慢，但扛得住。**重试设置一点没改，只是不再被错误地触发**。`,
+          en: `Availability is back to ${fmtAvail(f.avail)}, p95 ${fmtLatency(f.p95)} (was ${fmtAvail(s.avail)}). Catalog gets ${Math.round(catArr(f, c))} requests a second, back to normal, at ${fmtPct(catCpu(f, c))} CPU: slow, but coping. **The retry settings didn't change at all; they just aren't triggered by mistake any more**.`,
         };
       },
     },
@@ -233,8 +233,8 @@ export const lesson07: Lesson = {
       kind: 'read',
       title: L('超时该设多大', 'How long a timeout should be'),
       body: L(
-        `超时太短，下游正常的波动就会被当成失败，还会触发重试，就像刚才。\n\n超时太长也有代价。用第 2 课的利特尔定律算：同时卡在订单服务里的请求 = 每秒请求数 × 每个请求等待的时间。下游真的挂了时，超时 10 秒意味着每秒 ${LOAD} 个请求 × 10 秒 = ${LOAD * 10} 个请求同时占着线程等，线程很快耗尽，订单服务自己也跟着挂。\n\n经验做法：\n• 超时略高于下游正常时的 p99（这里平时 p99 几十毫秒，变慢后 300ms 左右，${FIT}ms 有余量）。\n• 每一层的超时都要比上一层短，留出重试的时间；最外层的总时限（截止时间）往下传，快到时限就别再重试了。\n• 重试只放在一层，通常是离失败最近的那一层；其他层不重试。`,
-        `Too short a timeout turns normal wobbles downstream into failures, and triggers retries, as you just saw.\n\nToo long has a cost too. By Little's law from lesson 2, requests stuck in Orders = requests per second × how long each waits. If the dependency really dies, a 10-second timeout means ${LOAD} requests a second × 10 seconds = ${LOAD * 10} requests holding threads at once; the threads run out and Orders goes down with it.\n\nRules of thumb:\n• Set the timeout a little above the dependency's normal p99 (here tens of milliseconds normally, about 300ms when slow; ${FIT}ms leaves room).\n• Each layer's timeout is shorter than the one above it, leaving room for a retry; pass the overall deadline down, and stop retrying when it is close.\n• Retry at one layer only, usually the one closest to the failure; the others don't.`,
+        `**超时太短，下游正常的波动就会被当成失败**，还会触发重试，就像刚才。\n\n**超时太长也有代价**。用第 2 课的利特尔定律算：同时卡在订单服务里的请求 = 每秒请求数 × 每个请求等待的时间。下游真的挂了时，超时 10 秒意味着每秒 ${LOAD} 个请求 × 10 秒 = ${LOAD * 10} 个请求同时占着线程等，线程很快耗尽，订单服务自己也跟着挂。\n\n经验做法：\n• **超时略高于下游正常时的 p99**（这里平时 p99 几十毫秒，变慢后 300ms 左右，${FIT}ms 有余量）。\n• 每一层的超时都要比上一层短，留出重试的时间；最外层的总时限（截止时间）往下传，快到时限就别再重试了。\n• **重试只放在一层**，通常是离失败最近的那一层；其他层不重试。`,
+        `**Too short a timeout turns normal wobbles downstream into failures**, and triggers retries, as you just saw.\n\n**Too long has a cost too**. By Little's law from lesson 2, requests stuck in Orders = requests per second × how long each waits. If the dependency really dies, a 10-second timeout means ${LOAD} requests a second × 10 seconds = ${LOAD * 10} requests holding threads at once; the threads run out and Orders goes down with it.\n\nRules of thumb:\n• **Set the timeout a little above the dependency's normal p99** (here tens of milliseconds normally, about 300ms when slow; ${FIT}ms leaves room).\n• Each layer's timeout is shorter than the one above it, leaving room for a retry; pass the overall deadline down, and stop retrying when it is close.\n• **Retry at one layer only**, usually the one closest to the failure; the others don't.`,
       ),
     },
     {
@@ -290,8 +290,8 @@ export const lesson07: Lesson = {
         const w = m(c, 'worse'), b = m(c, 'budget');
         if (!w || !b) return L('', '');
         return {
-          zh: `可用性 ${fmtAvail(b.avail)}（刚才 ${fmtAvail(w.avail)}）。${reveal(c, 'predict-budget', b.avail, BUDGET_OPTIONS).zh}\n\n重试不再放大负载了，可商品服务本身的处理能力就不够：请求在它那里排长队，等到超时。少重试只是"不添乱"，救不了一个真的扛不住的下游。`,
-          en: `Availability ${fmtAvail(b.avail)} (was ${fmtAvail(w.avail)}). ${reveal(c, 'predict-budget', b.avail, BUDGET_OPTIONS).en}\n\nRetries no longer multiply the load, but Catalog simply lacks the capacity: requests queue there until they time out. Fewer retries only stop making it worse; they can't rescue a dependency that truly can't cope.`,
+          zh: `可用性 ${fmtAvail(b.avail)}（刚才 ${fmtAvail(w.avail)}）。${reveal(c, 'predict-budget', b.avail, BUDGET_OPTIONS).zh}\n\n重试不再放大负载了，可商品服务本身的处理能力就不够：请求在它那里排长队，等到超时。**少重试只是"不添乱"，救不了一个真的扛不住的下游**。`,
+          en: `Availability ${fmtAvail(b.avail)} (was ${fmtAvail(w.avail)}). ${reveal(c, 'predict-budget', b.avail, BUDGET_OPTIONS).en}\n\nRetries no longer multiply the load, but Catalog simply lacks the capacity: requests queue there until they time out. **Fewer retries only stop making it worse; they can't rescue a dependency that truly can't cope**.`,
         };
       },
     },
@@ -316,8 +316,8 @@ export const lesson07: Lesson = {
         const b = m(c, 'budget'), br = m(c, 'breaker');
         if (!b || !br) return L('', '');
         return {
-          zh: `可用性 ${fmtAvail(br.avail)}（刚才 ${fmtAvail(b.avail)}），其中相当一部分是降级返回的默认结果。商品服务每秒只收到 ${Math.round(catArr(br, c))} 个请求，CPU 降到 ${fmtPct(catCpu(br, c))}，有了喘息的空间；订单服务的线程也不再被卡住。底部"事件"里能看到熔断器打开、半开、关闭的过程。\n\n剩下的失败发生在熔断器打开之前，以及半开试探的时候。降级的结果不完美，但"能用、少了点东西"远好过"整个页面报错"。`,
-          en: `Availability ${fmtAvail(br.avail)} (was ${fmtAvail(b.avail)}), a good part of it fallback results. Catalog now gets only ${Math.round(catArr(br, c))} requests a second, its CPU down to ${fmtPct(catCpu(br, c))}: room to breathe. Orders' threads aren't stuck any more either. The Events tab shows the breaker opening, half-opening and closing.\n\nThe remaining failures happen before the breaker opens and while it probes. A fallback isn't perfect, but "works, with something missing" beats "the whole page errors out".`,
+          zh: `可用性 ${fmtAvail(br.avail)}（刚才 ${fmtAvail(b.avail)}），其中相当一部分是降级返回的默认结果。商品服务每秒只收到 ${Math.round(catArr(br, c))} 个请求，CPU 降到 ${fmtPct(catCpu(br, c))}，有了喘息的空间；订单服务的线程也不再被卡住。底部"事件"里能看到熔断器打开、半开、关闭的过程。\n\n剩下的失败发生在熔断器打开之前，以及半开试探的时候。降级的结果不完美，但**"能用、少了点东西"远好过"整个页面报错"**。`,
+          en: `Availability ${fmtAvail(br.avail)} (was ${fmtAvail(b.avail)}), a good part of it fallback results. Catalog now gets only ${Math.round(catArr(br, c))} requests a second, its CPU down to ${fmtPct(catCpu(br, c))}: room to breathe. Orders' threads aren't stuck any more either. The Events tab shows the breaker opening, half-opening and closing.\n\nThe remaining failures happen before the breaker opens and while it probes. A fallback isn't perfect, but **"works, with something missing" beats "the whole page errors out"**.`,
         };
       },
     },
@@ -326,8 +326,8 @@ export const lesson07: Lesson = {
       kind: 'read',
       title: L('小结', 'Wrap-up'),
       body: L(
-        `记住四点：\n\n• 重试会放大负载，而且层层相乘。只在一层重试，用指数退避和随机抖动把重试错开，再设重试预算封顶。\n• 超时要配得上下游：略高于它正常时的 p99。太短会把"慢"误判成"失败"，触发风暴；太长会让等待的请求占满线程（利特尔定律）。\n• 下游真的扛不住时，少重试只是不添乱；熔断器快速失败，给下游喘息的时间，再配上降级，让用户还能用。\n• 这些设置平时看不出差别，只有出事时才见分晓，所以值得像今天这样先演练一遍。\n\n别忘了在商品服务上点"结束"，结束这次变慢。`,
-        `Four things to remember:\n\n• Retries multiply load, layer upon layer. Retry at one layer, spread retries out with exponential backoff and jitter, and cap them with a retry budget.\n• Fit the timeout to the dependency: a little above its normal p99. Too short turns "slow" into "failed" and sets off a storm; too long lets waiting requests take every thread (Little's law).\n• When the dependency truly can't cope, fewer retries only stop making it worse; a circuit breaker fails fast and gives it room to recover, and a fallback keeps users going.\n• None of these settings show a difference on a normal day, only when something goes wrong, which is why it pays to rehearse it like this.\n\nDon't forget to press End on Catalog's slowdown.`,
+        `记住四点：\n\n• **重试会放大负载，而且层层相乘**。只在一层重试，用指数退避和随机抖动把重试错开，再设重试预算封顶。\n• **超时要配得上下游**：略高于它正常时的 p99。太短会把"慢"误判成"失败"，触发风暴；太长会让等待的请求占满线程（利特尔定律）。\n• **下游真的扛不住时，少重试只是不添乱**；熔断器快速失败，给下游喘息的时间，再配上降级，让用户还能用。\n• **这些设置平时看不出差别，只有出事时才见分晓**，所以值得像今天这样先演练一遍。\n\n别忘了在商品服务上点"结束"，结束这次变慢。`,
+        `Four things to remember:\n\n• **Retries multiply load, layer upon layer**. Retry at one layer, spread retries out with exponential backoff and jitter, and cap them with a retry budget.\n• **Fit the timeout to the dependency**: a little above its normal p99. Too short turns "slow" into "failed" and sets off a storm; too long lets waiting requests take every thread (Little's law).\n• **When the dependency truly can't cope, fewer retries only stop making it worse**; a circuit breaker fails fast and gives it room to recover, and a fallback keeps users going.\n• **None of these settings show a difference on a normal day, only when something goes wrong**, which is why it pays to rehearse it like this.\n\nDon't forget to press End on Catalog's slowdown.`,
       ),
     },
   ],

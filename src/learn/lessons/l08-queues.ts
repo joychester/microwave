@@ -165,8 +165,8 @@ export const lesson08: Lesson = {
         const s = m(c, 'sync');
         if (!s) return L('', '');
         return {
-          zh: `用户看到的 p95 是 ${fmtLatency(s.p95)}，其中大半时间花在等邮件上。可用户点"下单"时，要的只是"订单成功了"；邮件晚几秒到，根本没人在意。`,
-          en: `Users see a p95 of ${fmtLatency(s.p95)}, most of it waiting for the email. Yet when users press "Place order", all they need to know is that the order went through; nobody minds an email arriving a few seconds later.`,
+          zh: `用户看到的 p95 是 ${fmtLatency(s.p95)}，其中大半时间花在等邮件上。可用户点"下单"时，要的只是"订单成功了"；**邮件晚几秒到，根本没人在意**。`,
+          en: `Users see a p95 of ${fmtLatency(s.p95)}, most of it waiting for the email. Yet when users press "Place order", all they need to know is that the order went through; **nobody minds an email arriving a few seconds later**.`,
         };
       },
     },
@@ -210,8 +210,8 @@ export const lesson08: Lesson = {
         if (!l || !e) return L('', '');
         const share = e.arr > 0 ? e.err / e.arr : 0;
         return {
-          zh: `用户看到的可用性 ${fmtAvail(l.avail)}，一切正常；可邮件服务每秒有 ${e.err.toFixed(0)} 封邮件发送失败（约 ${fmtPct(share)}）。订单服务没在等结果，也就不知道失败了：这些邮件就这么丢了，没有重试，也没有记录。\n\n发后不管只适合丢了也无所谓的事，比如打点日志。确认邮件、扣库存、通知仓库发货，这些事不能丢。`,
-          en: `Users see ${fmtAvail(l.avail)} availability, all fine; yet ${e.err.toFixed(0)} emails a second fail at the email service (about ${fmtPct(share)}). Orders isn't waiting for the result, so it never learns of it: those emails are simply gone, never retried and never recorded.\n\nFire and forget only suits work you can afford to lose, such as analytics events. Confirmation emails, stock updates and shipping requests can't be lost.`,
+          zh: `用户看到的可用性 ${fmtAvail(l.avail)}，一切正常；可邮件服务每秒有 ${e.err.toFixed(0)} 封邮件发送失败（约 ${fmtPct(share)}）。订单服务没在等结果，也就不知道失败了：**这些邮件就这么丢了，没有重试，也没有记录**。\n\n**发后不管只适合丢了也无所谓的事**，比如打点日志。确认邮件、扣库存、通知仓库发货，这些事不能丢。`,
+          en: `Users see ${fmtAvail(l.avail)} availability, all fine; yet ${e.err.toFixed(0)} emails a second fail at the email service (about ${fmtPct(share)}). Orders isn't waiting for the result, so it never learns of it: **those emails are simply gone, never retried and never recorded**.\n\n**Fire and forget only suits work you can afford to lose**, such as analytics events. Confirmation emails, stock updates and shipping requests can't be lost.`,
         };
       },
     },
@@ -220,8 +220,8 @@ export const lesson08: Lesson = {
       kind: 'read',
       title: L('消息队列', 'Message queues'),
       body: L(
-        `消息队列（Kafka、RabbitMQ、SQS 这些）就是在中间放一个可靠的"收件箱"：\n\n• 订单服务（生产者）只要把"给这个订单发邮件"这条消息写进队列，几毫秒就能返回，不用等邮件发完。\n• 消息写进去就落盘保存，邮件服务暂时挂了也不会丢。\n• 邮件服务（消费者）按自己的节奏去取消息、处理。失败了可以重试；重试几次还失败，就放进"死信队列"（DLQ），等人排查后再补发。\n\n两边从此解耦：生产者不用管消费者快慢、在不在线；消费者也不会被突然涌来的流量冲垮。`,
-        `A message queue (Kafka, RabbitMQ, SQS…) puts a reliable inbox in between:\n\n• Orders (the producer) only writes a message, "send the email for this order", to the queue, and returns in a few milliseconds without waiting for the email.\n• Once written, the message is stored on disk; it survives the email service being down for a while.\n• The email service (the consumer) takes messages at its own pace and processes them. A failure can be retried; one that keeps failing goes to a dead-letter queue (DLQ) to be investigated and replayed.\n\nThe two sides are now decoupled: the producer doesn't care how fast the consumer is, or whether it is up; the consumer isn't flattened by a sudden flood.`,
+        `**消息队列（Kafka、RabbitMQ、SQS 这些）就是在中间放一个可靠的"收件箱"**：\n\n• 订单服务（生产者）只要把"给这个订单发邮件"这条消息写进队列，几毫秒就能返回，不用等邮件发完。\n• **消息写进去就落盘保存**，邮件服务暂时挂了也不会丢。\n• 邮件服务（消费者）按自己的节奏去取消息、处理。失败了可以重试；重试几次还失败，就放进"**死信队列"（DLQ）**，等人排查后再补发。\n\n**两边从此解耦**：生产者不用管消费者快慢、在不在线；消费者也不会被突然涌来的流量冲垮。`,
+        `**A message queue (Kafka, RabbitMQ, SQS…) puts a reliable inbox in between**:\n\n• Orders (the producer) only writes a message, "send the email for this order", to the queue, and returns in a few milliseconds without waiting for the email.\n• **Once written, the message is stored on disk**; it survives the email service being down for a while.\n• The email service (the consumer) takes messages at its own pace and processes them. A failure can be retried; one that keeps failing goes to a **dead-letter queue (DLQ)** to be investigated and replayed.\n\n**The two sides are now decoupled**: the producer doesn't care how fast the consumer is, or whether it is up; the consumer isn't flattened by a sudden flood.`,
       ),
     },
     {
@@ -247,8 +247,8 @@ export const lesson08: Lesson = {
         const s = m(c, 'sync'), q = m(c, 'mq'), k = nm(m(c, 'mq'), kafka(c));
         if (!s || !q || !k) return L('', '');
         return {
-          zh: `用户看到的 p95 是 ${fmtLatency(q.p95)}（同步时 ${fmtLatency(s.p95)}），多出的只是写一次 Kafka 的几毫秒。Kafka 卡片上，每秒写入和消费都是 ${Math.round(k.out)} 条左右，积压 ${fmtCount(k.lag)} 条：进多少，出多少。从下单到邮件发出，平均 ${fmtLatency(k.lat)}。\n\n这个"端到端延迟"才是邮件的真实体验，它不会出现在接口的 p95 里。`,
-          en: `Users see a p95 of ${fmtLatency(q.p95)} (synchronous: ${fmtLatency(s.p95)}); the extra is just the few milliseconds to write to Kafka. On the Kafka card, about ${Math.round(k.out)} messages a second go in and come out, with a backlog of ${fmtCount(k.lag)}: as many out as in. From order to email sent takes ${fmtLatency(k.lat)} on average.\n\nThat end-to-end delay is what the email actually feels like, and it never shows up in the API's p95.`,
+          zh: `用户看到的 p95 是 ${fmtLatency(q.p95)}（同步时 ${fmtLatency(s.p95)}），多出的只是写一次 Kafka 的几毫秒。Kafka 卡片上，每秒写入和消费都是 ${Math.round(k.out)} 条左右，积压 ${fmtCount(k.lag)} 条：进多少，出多少。从下单到邮件发出，平均 ${fmtLatency(k.lat)}。\n\n**这个"端到端延迟"才是邮件的真实体验，它不会出现在接口的 p95 里**。`,
+          en: `Users see a p95 of ${fmtLatency(q.p95)} (synchronous: ${fmtLatency(s.p95)}); the extra is just the few milliseconds to write to Kafka. On the Kafka card, about ${Math.round(k.out)} messages a second go in and come out, with a backlog of ${fmtCount(k.lag)}: as many out as in. From order to email sent takes ${fmtLatency(k.lat)} on average.\n\n**That end-to-end delay is what the email actually feels like, and it never shows up in the API's p95**.`,
         };
       },
     },
@@ -279,8 +279,8 @@ export const lesson08: Lesson = {
         if (!q || !sp || !e) return L('', '');
         const r = reveal(c, 'predict-spike', sp.p95 / Math.max(1, q.p95), SPIKE_OPTIONS);
         return {
-          zh: `尖峰期间接口 p95 是 ${fmtLatency(sp.p95)}（平时 ${fmtLatency(q.p95)}）。${r.zh}\n\n可积压已经涨到 ${fmtCount(liveLag(c))} 条。邮件服务一直按自己的节奏，每秒处理 ${Math.round(e.arr)} 条左右；多出来的消息都存在 Kafka 里排队，这叫"削峰填谷"。`,
-          en: `During the spike the API's p95 was ${fmtLatency(sp.p95)} (normally ${fmtLatency(q.p95)}). ${r.en}\n\nBut the backlog has grown to ${fmtCount(liveLag(c))} messages. The email service kept its own pace, about ${Math.round(e.arr)} a second; everything extra is waiting in Kafka. This is called load leveling: the queue flattens the peak.`,
+          zh: `尖峰期间接口 p95 是 ${fmtLatency(sp.p95)}（平时 ${fmtLatency(q.p95)}）。${r.zh}\n\n可积压已经涨到 ${fmtCount(liveLag(c))} 条。邮件服务一直按自己的节奏，每秒处理 ${Math.round(e.arr)} 条左右；多出来的消息都存在 Kafka 里排队，**这叫"削峰填谷"**。`,
+          en: `During the spike the API's p95 was ${fmtLatency(sp.p95)} (normally ${fmtLatency(q.p95)}). ${r.en}\n\nBut the backlog has grown to ${fmtCount(liveLag(c))} messages. The email service kept its own pace, about ${Math.round(e.arr)} a second; everything extra is waiting in Kafka. **This is called load leveling**: the queue flattens the peak.`,
         };
       },
     },
@@ -298,8 +298,8 @@ export const lesson08: Lesson = {
         const delayZh = isFinite(delay) ? `此刻发出的邮件已经比下单晚了 ${fmtLatency(delay)}，而且还在变晚。` : '';
         const delayEn = isFinite(delay) ? `Emails going out right now are already ${fmtLatency(delay)} behind their orders, and falling further behind.` : '';
         return {
-          zh: `尖峰过去了，接口一直很快，监控上的 p95 一片绿。可是：\n\n• 积压现在是 ${fmtCount(lag)} 条。消费速度每秒约 ${Math.round(out)} 条，平时每秒进来 ${BASE} 条，每秒只能净消化 ${Math.round(net)} 条：清空要 ${fmtCount(lag)} ÷ ${Math.round(net)} ≈ ${mins} 分钟。\n• 新下的单要排在这 ${fmtCount(lag)} 条后面，大约等 ${fmtCount(lag)} ÷ ${Math.round(out)} ≈ ${wait} 秒，邮件才会发出（第 2 课的利特尔定律：排队数 = 速率 × 等待时间）。${delayZh}\n\n所以用了队列，要监控的不只是接口，还有积压（consumer lag）和端到端延迟。真实系统里，积压持续上涨就该报警：消费者跟不上了。\n\n如果邮件是"验证码"，晚一分钟到，用户早就走了。异步解决的是"不让用户等"，不是"让工作变少"：消费能力不够，工作只是换了个地方排队。`,
-          en: `The spike is over; the API stayed fast throughout, and p95 on the dashboard is all green. However:\n\n• The backlog is ${fmtCount(lag)} messages. Consumers manage about ${Math.round(out)} a second while ${BASE} keep arriving, so they gain only ${Math.round(net)} a second: clearing it takes ${fmtCount(lag)} ÷ ${Math.round(net)} ≈ ${mins} minutes.\n• A new order queues behind those ${fmtCount(lag)} messages, waiting about ${fmtCount(lag)} ÷ ${Math.round(out)} ≈ ${wait} seconds for its email (Little's law from lesson 2: queue length = rate × wait). ${delayEn}\n\nSo with a queue, watch more than the API: watch the backlog (consumer lag) and the end-to-end delay. In production, a backlog that keeps rising should page someone: the consumers can't keep up.\n\nIf the email were a login code, a minute late means the user is long gone. Async stops users waiting; it doesn't make the work smaller. Without enough consuming capacity, the work just queues somewhere else.`,
+          zh: `尖峰过去了，接口一直很快，监控上的 p95 一片绿。可是：\n\n• 积压现在是 ${fmtCount(lag)} 条。消费速度每秒约 ${Math.round(out)} 条，平时每秒进来 ${BASE} 条，每秒只能净消化 ${Math.round(net)} 条：清空要 ${fmtCount(lag)} ÷ ${Math.round(net)} ≈ ${mins} 分钟。\n• 新下的单要排在这 ${fmtCount(lag)} 条后面，大约等 ${fmtCount(lag)} ÷ ${Math.round(out)} ≈ ${wait} 秒，邮件才会发出（第 2 课的利特尔定律：排队数 = 速率 × 等待时间）。${delayZh}\n\n所以用了队列，**要监控的不只是接口，还有积压（consumer lag）和端到端延迟**。真实系统里，积压持续上涨就该报警：消费者跟不上了。\n\n如果邮件是"验证码"，晚一分钟到，用户早就走了。**异步解决的是"不让用户等"，不是"让工作变少"**：消费能力不够，工作只是换了个地方排队。`,
+          en: `The spike is over; the API stayed fast throughout, and p95 on the dashboard is all green. However:\n\n• The backlog is ${fmtCount(lag)} messages. Consumers manage about ${Math.round(out)} a second while ${BASE} keep arriving, so they gain only ${Math.round(net)} a second: clearing it takes ${fmtCount(lag)} ÷ ${Math.round(net)} ≈ ${mins} minutes.\n• A new order queues behind those ${fmtCount(lag)} messages, waiting about ${fmtCount(lag)} ÷ ${Math.round(out)} ≈ ${wait} seconds for its email (Little's law from lesson 2: queue length = rate × wait). ${delayEn}\n\nSo with a queue, **watch more than the API: watch the backlog (consumer lag) and the end-to-end delay**. In production, a backlog that keeps rising should page someone: the consumers can't keep up.\n\nIf the email were a login code, a minute late means the user is long gone. **Async stops users waiting; it doesn't make the work smaller**. Without enough consuming capacity, the work just queues somewhere else.`,
         };
       },
     },
@@ -342,8 +342,8 @@ export const lesson08: Lesson = {
       kind: 'read',
       title: L('分区决定并行度', 'Partitions set the parallelism'),
       body: L(
-        `Kafka 把一个主题分成若干分区，每个分区同一时刻只能由消费组里的一个消费者读，这样才能保证同一分区内的消息按顺序处理（比如同一个订单的"已下单""已付款"不会颠倒）。\n\n所以：有效并行度 = min(消费者数, 分区数)。这里只有 ${PARTITIONS} 个分区，加到 ${MANY} 个消费者，多出来的 ${MANY - PARTITIONS} 个只能闲着，白白占机器。\n\n几条经验：\n• 分区数要提前规划，按预计最多需要的消费者数，再留些余量。事后再加分区，消息按 key 分到哪个分区会变，顺序保证就乱了。\n• 消费者数量一变，整个消费组就要 rebalance，暂停消费一段时间。不要让消费者频繁上下线，用自动扩缩容管消费者时也要注意。\n• 消费者加多了，压力就转到下游：现在邮件服务每秒要处理的邮件翻了一倍。如果下游是数据库或者有配额的邮件服务商，队列原本帮它挡住的洪峰，又被你放了进去。`,
-        `Kafka splits a topic into partitions, and within a consumer group each partition is read by just one consumer at a time. That keeps messages in a partition in order (so "order placed" and "order paid" for the same order never swap).\n\nSo the effective parallelism = min(consumers, partitions). With only ${PARTITIONS} partitions, ${MANY} consumers leave ${MANY - PARTITIONS} sitting idle, taking up machines for nothing.\n\nRules of thumb:\n• Plan the partition count ahead: the most consumers you expect to need, plus some room. Adding partitions later changes which partition each key goes to, and breaks the ordering.\n• Whenever the number of consumers changes, the whole group rebalances and stops consuming for a while. Don't let consumers come and go often; take care when autoscaling them.\n• More consumers shift the load downstream: the email service now handles twice as many emails a second. If the downstream is a database, or a mail provider with a quota, you have let back in the flood the queue was holding off.`,
+        `Kafka 把一个主题分成若干分区，每个分区同一时刻只能由消费组里的一个消费者读，这样才能保证同一分区内的消息按顺序处理（比如同一个订单的"已下单""已付款"不会颠倒）。\n\n所以：**有效并行度 = min(消费者数, 分区数)**。这里只有 ${PARTITIONS} 个分区，加到 ${MANY} 个消费者，多出来的 ${MANY - PARTITIONS} 个只能闲着，白白占机器。\n\n几条经验：\n• **分区数要提前规划**，按预计最多需要的消费者数，再留些余量。事后再加分区，消息按 key 分到哪个分区会变，顺序保证就乱了。\n• **消费者数量一变，整个消费组就要 rebalance**，暂停消费一段时间。不要让消费者频繁上下线，用自动扩缩容管消费者时也要注意。\n• **消费者加多了，压力就转到下游**：现在邮件服务每秒要处理的邮件翻了一倍。如果下游是数据库或者有配额的邮件服务商，队列原本帮它挡住的洪峰，又被你放了进去。`,
+        `Kafka splits a topic into partitions, and within a consumer group each partition is read by just one consumer at a time. That keeps messages in a partition in order (so "order placed" and "order paid" for the same order never swap).\n\nSo **the effective parallelism = min(consumers, partitions)**. With only ${PARTITIONS} partitions, ${MANY} consumers leave ${MANY - PARTITIONS} sitting idle, taking up machines for nothing.\n\nRules of thumb:\n• **Plan the partition count ahead**: the most consumers you expect to need, plus some room. Adding partitions later changes which partition each key goes to, and breaks the ordering.\n• **Whenever the number of consumers changes, the whole group rebalances** and stops consuming for a while. Don't let consumers come and go often; take care when autoscaling them.\n• **More consumers shift the load downstream**: the email service now handles twice as many emails a second. If the downstream is a database, or a mail provider with a quota, you have let back in the flood the queue was holding off.`,
       ),
     },
     {
@@ -370,8 +370,8 @@ export const lesson08: Lesson = {
       kind: 'read',
       title: L('小结', 'Wrap-up'),
       body: L(
-        `记住五点：\n\n• 用户不需要等的事（发邮件、发通知、生成报表），不要放在请求里同步做。\n• 发后不管很快，但失败了没人知道，只适合丢了也无所谓的事。不能丢的事交给消息队列：落盘保存、失败重试、进死信队列。\n• 队列能削峰：流量突增时接口照样快，下游按自己的节奏消费。代价是积压和延迟，要监控积压和端到端延迟，不能只看接口 p95。\n• 消费能力 = min(消费者数, 分区数) × 每个消费者的速度。分区要提前规划；消费者加多了，压力会转到下游。\n• 什么时候不该异步：用户必须马上知道结果的事，比如支付是否成功、库存够不够。\n\n还有一点这里没演示：消息队列一般保证"至少一次"投递，重试和 rebalance 都可能让同一条消息被处理两次。消费者要做成幂等的（比如按订单号去重），否则用户会收到两封邮件，或者被扣两次钱。`,
-        `Five things to remember:\n\n• Work users needn't wait for (emails, notifications, reports) doesn't belong inside the request.\n• Fire and forget is fast, but failures go unnoticed; use it only for work you can afford to lose. Work that mustn't be lost goes through a queue: stored on disk, retried, sent to a dead-letter queue.\n• A queue levels load: during a surge the API stays fast and the downstream consumes at its own pace. The price is a backlog and a delay, so watch consumer lag and end-to-end delay, not just the API's p95.\n• Consuming capacity = min(consumers, partitions) × each consumer's rate. Plan partitions ahead; more consumers push the load downstream.\n• When not to go async: whenever users must know the result at once, such as whether a payment went through or an item is in stock.\n\nOne more thing not shown here: queues usually deliver "at least once", and retries and rebalances can hand the same message to a consumer twice. Make consumers idempotent (say, deduplicate by order ID), or users get two emails, or are charged twice.`,
+        `记住五点：\n\n• **用户不需要等的事（发邮件、发通知、生成报表），不要放在请求里同步做**。\n• **发后不管很快，但失败了没人知道**，只适合丢了也无所谓的事。不能丢的事交给消息队列：落盘保存、失败重试、进死信队列。\n• **队列能削峰**：流量突增时接口照样快，下游按自己的节奏消费。代价是积压和延迟，要监控积压和端到端延迟，不能只看接口 p95。\n• **消费能力 = min(消费者数, 分区数) × 每个消费者的速度**。分区要提前规划；消费者加多了，压力会转到下游。\n• **什么时候不该异步**：用户必须马上知道结果的事，比如支付是否成功、库存够不够。\n\n还有一点这里没演示：消息队列一般保证**"至少一次"投递**，重试和 rebalance 都可能让同一条消息被处理两次。**消费者要做成幂等的**（比如按订单号去重），否则用户会收到两封邮件，或者被扣两次钱。`,
+        `Five things to remember:\n\n• **Work users needn't wait for (emails, notifications, reports) doesn't belong inside the request**.\n• **Fire and forget is fast, but failures go unnoticed**; use it only for work you can afford to lose. Work that mustn't be lost goes through a queue: stored on disk, retried, sent to a dead-letter queue.\n• **A queue levels load**: during a surge the API stays fast and the downstream consumes at its own pace. The price is a backlog and a delay, so watch consumer lag and end-to-end delay, not just the API's p95.\n• **Consuming capacity = min(consumers, partitions) × each consumer's rate**. Plan partitions ahead; more consumers push the load downstream.\n• **When not to go async**: whenever users must know the result at once, such as whether a payment went through or an item is in stock.\n\nOne more thing not shown here: queues usually **deliver "at least once"**, and retries and rebalances can hand the same message to a consumer twice. **Make consumers idempotent** (say, deduplicate by order ID), or users get two emails, or are charged twice.`,
       ),
     },
   ],

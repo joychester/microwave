@@ -147,8 +147,8 @@ export const lesson02: Lesson = {
         const k = a.avg / base.avg;
         const errs = b.avail < 0.995;
         return {
-          zh: `200/s 时，平均延迟 ${fmtLatency(a.avg)}，是基线的 ${x(k)}。${reveal(c, 'predict-double', k, DOUBLE_OPTIONS).zh}\n\n再看 220/s：流量只多了 10%，平均延迟却从 ${fmtLatency(a.avg)} 涨到 ${fmtLatency(b.avg)}。CPU 已经 ${fmtPct(b.cpu)}：来的请求比处理得了的多，多出来的只能排队，队伍越排越长。${errs ? `队列排满后，新请求直接被拒绝，可用性掉到了 ${fmtAvail(b.avail)}。` : ''}`,
-          en: `At 200/s the average is ${fmtLatency(a.avg)}, ${x(k)} the baseline. ${reveal(c, 'predict-double', k, DOUBLE_OPTIONS).en}\n\nNow 220/s: only 10% more traffic, but the average went from ${fmtLatency(a.avg)} to ${fmtLatency(b.avg)}. CPU is at ${fmtPct(b.cpu)}: more requests arrive than it can handle, so the extra ones queue and the queue keeps growing.${errs ? ` Once the queue is full, new requests are turned away; availability fell to ${fmtAvail(b.avail)}.` : ''}`,
+          zh: `200/s 时，平均延迟 ${fmtLatency(a.avg)}，是基线的 ${x(k)}。${reveal(c, 'predict-double', k, DOUBLE_OPTIONS).zh}\n\n再看 220/s：流量只多了 10%，平均延迟却从 ${fmtLatency(a.avg)} 涨到 ${fmtLatency(b.avg)}。CPU 已经 ${fmtPct(b.cpu)}：**来的请求比处理得了的多，多出来的只能排队，队伍越排越长**。${errs ? `队列排满后，新请求直接被拒绝，可用性掉到了 ${fmtAvail(b.avail)}。` : ''}`,
+          en: `At 200/s the average is ${fmtLatency(a.avg)}, ${x(k)} the baseline. ${reveal(c, 'predict-double', k, DOUBLE_OPTIONS).en}\n\nNow 220/s: only 10% more traffic, but the average went from ${fmtLatency(a.avg)} to ${fmtLatency(b.avg)}. CPU is at ${fmtPct(b.cpu)}: **more requests arrive than it can handle, so the extra ones queue and the queue keeps growing**.${errs ? ` Once the queue is full, new requests are turned away; availability fell to ${fmtAvail(b.avail)}.` : ''}`,
         };
       },
     },
@@ -161,8 +161,8 @@ export const lesson02: Lesson = {
         const ok = isFinite(ms);
         const u200 = ok ? (200 * ms) / 2000 : NaN;
         return {
-          zh: `两条规律就能解释。\n\n第一条是利用率定律：利用率 = 流量 × 每个请求占用的 CPU 时间 ÷ 核数。${ok ? `从你的基线算，每个请求约占 ${ms.toFixed(1)}ms CPU，所以 200/s 时利用率约 200 × ${ms.toFixed(1)}ms ÷ 2 核 ≈ ${fmtPct(u200)}。` : ''}\n\n第二条是排队：请求是随机到达的，就算平均够用，也常常几个请求同时挤进来，后来的只能等。利用率越高，撞车越频繁，等待时间大致按 1 ÷ (1 − 利用率) 增长：\n\n• 50% 时约 2 倍\n• 80% 时约 5 倍\n• 90% 时约 10 倍\n• 95% 时约 20 倍\n\n这就是曲线前面平、后面陡的原因：从 50% 到 80% 只多等一点，从 90% 到 95% 等待却直接翻倍。`,
-          en: `Two rules explain it.\n\nThe first is the utilization law: utilization = traffic × CPU time per request ÷ cores. ${ok ? `From your baseline each request uses about ${ms.toFixed(1)}ms of CPU, so at 200/s utilization is about 200 × ${ms.toFixed(1)}ms ÷ 2 cores ≈ ${fmtPct(u200)}.` : ''}\n\nThe second is queueing: requests arrive at random, so even when capacity is enough on average, several often arrive together and the later ones wait. The higher the utilization, the more often that happens; waiting grows roughly as 1 ÷ (1 − utilization):\n\n• about 2× at 50%\n• about 5× at 80%\n• about 10× at 90%\n• about 20× at 95%\n\nThat is why the curve is flat first and steep later: going from 50% to 80% adds a little waiting, but going from 90% to 95% doubles it.`,
+          zh: `两条规律就能解释。\n\n**第一条是利用率定律：利用率 = 流量 × 每个请求占用的 CPU 时间 ÷ 核数**。${ok ? `从你的基线算，每个请求约占 ${ms.toFixed(1)}ms CPU，所以 200/s 时利用率约 200 × ${ms.toFixed(1)}ms ÷ 2 核 ≈ ${fmtPct(u200)}。` : ''}\n\n第二条是排队：请求是随机到达的，就算平均够用，也常常几个请求同时挤进来，后来的只能等。利用率越高，撞车越频繁，**等待时间大致按 1 ÷ (1 − 利用率) 增长**：\n\n• 50% 时约 2 倍\n• 80% 时约 5 倍\n• 90% 时约 10 倍\n• 95% 时约 20 倍\n\n**这就是曲线前面平、后面陡的原因**：从 50% 到 80% 只多等一点，从 90% 到 95% 等待却直接翻倍。`,
+          en: `Two rules explain it.\n\n**The first is the utilization law: utilization = traffic × CPU time per request ÷ cores**. ${ok ? `From your baseline each request uses about ${ms.toFixed(1)}ms of CPU, so at 200/s utilization is about 200 × ${ms.toFixed(1)}ms ÷ 2 cores ≈ ${fmtPct(u200)}.` : ''}\n\nThe second is queueing: requests arrive at random, so even when capacity is enough on average, several often arrive together and the later ones wait. The higher the utilization, the more often that happens; **waiting grows roughly as 1 ÷ (1 − utilization)**:\n\n• about 2× at 50%\n• about 5× at 80%\n• about 10× at 90%\n• about 20× at 95%\n\n**That is why the curve is flat first and steep later**: going from 50% to 80% adds a little waiting, but going from 90% to 95% doubles it.`,
         };
       },
     },
@@ -189,8 +189,8 @@ export const lesson02: Lesson = {
           ? `\n\nTry it with your own numbers. At ${BASE}/s each request spends ${f(lo.w)}ms in the service on average, so L = ${BASE} × ${f(lo.w)}ms ≈ ${f(lo.l)}: about ${f(lo.l)} requests are in the service at any moment. Each holds a thread, and this instance has ${threads}, so about ${f(lo.l)} threads should be busy on average; you measured ${(lo.busy * 100).toFixed(1)}% of them busy, ${threads} × ${(lo.busy * 100).toFixed(1)}% ≈ ${f(lo.busy * threads)}, a match.${hi ? `\n\nAt 200/s each request spends ${f(hi.w)}ms, so L = 200 × ${f(hi.w)}ms ≈ ${f(hi.l)}. Traffic only doubled, yet ${f(hi.l / lo.l)}× as many requests are in the service at once: the extra ones are waiting for CPU.` : ''}`
           : '';
         return {
-          zh: `排队论里还有一条最常用的规律，叫利特尔定律（Little's law）：\n\nL = λ × W\n\n• L：系统里平均同时有多少个请求（正在处理的 + 正在排队的）\n• λ：每秒到达多少个请求\n• W：每个请求在系统里平均待多久（换成秒）${zhNums}\n\n它几乎不需要前提：不管请求怎么到达、处理时间怎么分布，只要系统稳定（长期看进来多少就出去多少）就成立。220/s 超过了上限，进来的比出去的多，队伍一直变长，所以那一档的延迟一直在涨，算不出一个稳定的平均值。\n\n"系统"可以随便划：整个服务、一个线程池、一个连接池、一个队列都行。所以它到处有用：\n\n• 池子要开多大：连接数 ≈ 每秒查询数 × 每次查询时间（第 4 课会用到）\n• 从积压算等待：队列里积压 6000 条、每秒处理 200 条，新消息大约要等 30 秒\n• 从并发上限算吞吐上限：50 个线程、每个请求 100ms，最多每秒处理 500 个`,
-          en: `Queueing theory has one more rule you will use all the time, Little's law:\n\nL = λ × W\n\n• L: how many requests are in the system on average (being served plus waiting)\n• λ: how many requests arrive per second\n• W: how long each request spends in the system on average (in seconds)${enNums}\n\nIt needs almost no assumptions: however requests arrive and however long they take, it holds as long as the system is stable (in the long run, as many leave as arrive). 220/s is past the limit, more arrive than leave and the line keeps growing, which is why latency kept rising at that level and has no steady average.\n\nThe "system" can be anything you draw a box around: a whole service, a thread pool, a connection pool, a queue. So it is useful everywhere:\n\n• Sizing a pool: connections ≈ queries per second × time per query (you will use this in lesson 4)\n• Waiting from a backlog: 6,000 messages queued and 200 handled a second means a new one waits about 30 seconds\n• Throughput from a concurrency limit: 50 threads at 100ms per request handle at most 500 requests a second`,
+          zh: `排队论里还有一条最常用的规律，**叫利特尔定律（Little's law）**：\n\nL = λ × W\n\n• L：系统里平均同时有多少个请求（正在处理的 + 正在排队的）\n• λ：每秒到达多少个请求\n• W：每个请求在系统里平均待多久（换成秒）${zhNums}\n\n它几乎不需要前提：不管请求怎么到达、处理时间怎么分布，**只要系统稳定（长期看进来多少就出去多少）就成立**。220/s 超过了上限，进来的比出去的多，队伍一直变长，所以那一档的延迟一直在涨，算不出一个稳定的平均值。\n\n"系统"可以随便划：整个服务、一个线程池、一个连接池、一个队列都行。所以它到处有用：\n\n• 池子要开多大：连接数 ≈ 每秒查询数 × 每次查询时间（第 4 课会用到）\n• 从积压算等待：队列里积压 6000 条、每秒处理 200 条，新消息大约要等 30 秒\n• 从并发上限算吞吐上限：50 个线程、每个请求 100ms，最多每秒处理 500 个`,
+          en: `Queueing theory has one more rule you will use all the time, **Little's law**:\n\nL = λ × W\n\n• L: how many requests are in the system on average (being served plus waiting)\n• λ: how many requests arrive per second\n• W: how long each request spends in the system on average (in seconds)${enNums}\n\nIt needs almost no assumptions: however requests arrive and however long they take, **it holds as long as the system is stable (in the long run, as many leave as arrive)**. 220/s is past the limit, more arrive than leave and the line keeps growing, which is why latency kept rising at that level and has no steady average.\n\nThe "system" can be anything you draw a box around: a whole service, a thread pool, a connection pool, a queue. So it is useful everywhere:\n\n• Sizing a pool: connections ≈ queries per second × time per query (you will use this in lesson 4)\n• Waiting from a backlog: 6,000 messages queued and 200 handled a second means a new one waits about 30 seconds\n• Throughput from a concurrency limit: 50 threads at 100ms per request handle at most 500 requests a second`,
         };
       },
     },
@@ -222,8 +222,8 @@ export const lesson02: Lesson = {
         if (!base || !hot || !f) return L('', '');
         const k = f.avg / base.avg;
         return {
-          zh: `CPU 从 ${fmtPct(hot.cpu)} 降到 ${fmtPct(f.cpu)}，平均延迟从 ${fmtLatency(hot.avg)} 回到 ${fmtLatency(f.avg)}，可用性 ${fmtAvail(f.avail)}。${reveal(c, 'predict-fix', k, FIX_OPTIONS).zh}\n\n容量只翻了一倍，延迟却降到几分之一：利用率回到了曲线平坦的那一段。`,
-          en: `CPU fell from ${fmtPct(hot.cpu)} to ${fmtPct(f.cpu)} and average latency from ${fmtLatency(hot.avg)} back to ${fmtLatency(f.avg)}, availability ${fmtAvail(f.avail)}. ${reveal(c, 'predict-fix', k, FIX_OPTIONS).en}\n\nCapacity only doubled, yet latency dropped to a fraction: utilization is back on the flat part of the curve.`,
+          zh: `CPU 从 ${fmtPct(hot.cpu)} 降到 ${fmtPct(f.cpu)}，平均延迟从 ${fmtLatency(hot.avg)} 回到 ${fmtLatency(f.avg)}，可用性 ${fmtAvail(f.avail)}。${reveal(c, 'predict-fix', k, FIX_OPTIONS).zh}\n\n**容量只翻了一倍，延迟却降到几分之一**：利用率回到了曲线平坦的那一段。`,
+          en: `CPU fell from ${fmtPct(hot.cpu)} to ${fmtPct(f.cpu)} and average latency from ${fmtLatency(hot.avg)} back to ${fmtLatency(f.avg)}, availability ${fmtAvail(f.avail)}. ${reveal(c, 'predict-fix', k, FIX_OPTIONS).en}\n\n**Capacity only doubled, yet latency dropped to a fraction**: utilization is back on the flat part of the curve.`,
         };
       },
     },
@@ -240,8 +240,8 @@ export const lesson02: Lesson = {
       feedback: (c) => {
         const f = c.meas.fix;
         return {
-          zh: `仿真测到的 CPU 约 ${f ? fmtPct(f.cpu) : '50%'}，估算也在这附近：设计阶段用公式就能算出个大概，不必每次都跑仿真。\n\n那平时把利用率控制在多少合适？业界常用的经验规则是 70% 左右。这不是定律，而是两方面的考虑：一是避开曲线变陡的区域；二是给突发流量和故障留余量。比如现在 2 个实例各 50%，如果挂掉一个，剩下那个就要扛 100%，正好回到刚才崩溃的状态。`,
-          en: `The simulation measured about ${f ? fmtPct(f.cpu) : '50%'} CPU, and the estimate is close: at design time a formula gives you the rough answer without running a simulation.\n\nSo what utilization should you run at day to day? A common rule of thumb is around 70%. It isn't a law; it balances two things: staying off the steep part of the curve, and keeping headroom for bursts and failures. Right now 2 instances run at about 50% each; lose one and the other must carry 100%, exactly the meltdown you just saw.`,
+          zh: `仿真测到的 CPU 约 ${f ? fmtPct(f.cpu) : '50%'}，估算也在这附近：**设计阶段用公式就能算出个大概，不必每次都跑仿真**。\n\n那平时把利用率控制在多少合适？**业界常用的经验规则是 70% 左右**。这不是定律，而是两方面的考虑：一是避开曲线变陡的区域；二是给突发流量和故障留余量。比如现在 2 个实例各 50%，如果挂掉一个，剩下那个就要扛 100%，正好回到刚才崩溃的状态。`,
+          en: `The simulation measured about ${f ? fmtPct(f.cpu) : '50%'} CPU, and the estimate is close: **at design time a formula gives you the rough answer without running a simulation**.\n\nSo what utilization should you run at day to day? **A common rule of thumb is around 70%**. It isn't a law; it balances two things: staying off the steep part of the curve, and keeping headroom for bursts and failures. Right now 2 instances run at about 50% each; lose one and the other must carry 100%, exactly the meltdown you just saw.`,
         };
       },
     },
@@ -250,8 +250,8 @@ export const lesson02: Lesson = {
       kind: 'read',
       title: L('小结', 'Wrap-up'),
       body: L(
-        '记住三点：\n\n• 延迟不随流量线性增长：利用率低时几乎不变，过了 80% 左右急剧上升，到 100% 就开始无限排队。\n• 利用率 = 流量 × 每请求 CPU 时间 ÷ 核数，用它可以在设计阶段估算容量。\n• 平时留余量（常见经验值是 70% 左右），既避开陡峭区，也能扛住突发流量和单个实例故障。\n\n推荐接着打挑战第 1 关"第一次扩容"：流量会从 300/s 涨到 900/s，用这一课学到的东西决定要扩多少。',
-        'Three things to remember:\n\n• Latency doesn\'t grow in proportion to traffic: it barely moves at low utilization, rises sharply past about 80%, and at 100% the queue grows without end.\n• Utilization = traffic × CPU time per request ÷ cores; use it to estimate capacity at design time.\n• Keep headroom day to day (around 70% is a common rule of thumb): it keeps you off the steep part and covers bursts and the loss of an instance.\n\nNext, try challenge level 1, "First scale-out": traffic climbs from 300/s to 900/s, and this lesson tells you how much to scale.',
+        '记住三点：\n\n• **延迟不随流量线性增长**：利用率低时几乎不变，过了 80% 左右急剧上升，到 100% 就开始无限排队。\n• **利用率 = 流量 × 每请求 CPU 时间 ÷ 核数，用它可以在设计阶段估算容量**。\n• **平时留余量（常见经验值是 70% 左右）**，既避开陡峭区，也能扛住突发流量和单个实例故障。\n\n推荐接着打挑战第 1 关"第一次扩容"：流量会从 300/s 涨到 900/s，用这一课学到的东西决定要扩多少。',
+        'Three things to remember:\n\n• **Latency doesn\'t grow in proportion to traffic**: it barely moves at low utilization, rises sharply past about 80%, and at 100% the queue grows without end.\n• **Utilization = traffic × CPU time per request ÷ cores; use it to estimate capacity at design time**.\n• **Keep headroom day to day (around 70% is a common rule of thumb)**: it keeps you off the steep part and covers bursts and the loss of an instance.\n\nNext, try challenge level 1, "First scale-out": traffic climbs from 300/s to 900/s, and this lesson tells you how much to scale.',
       ),
     },
   ],

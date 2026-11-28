@@ -190,8 +190,8 @@ export const lesson06: Lesson = {
         const k = m(c, 'calm');
         if (!k) return L('', '');
         return {
-          zh: `它把实例从 3 个缩到了 2 个，CPU 利用率升到 ${fmtPct(k.cpu)}，接近目标 ${pct(T_DEFAULT)}，p95 ${fmtLatency(k.p95)}。少开一台，省了三分之一的钱。底部"事件"里能看到这次缩容。\n\n它的算法和 Kubernetes 的 HPA 一样：需要的实例数 = 向上取整（当前实例数 × 当前利用率 ÷ 目标利用率）。`,
-          en: `It went from 3 instances to 2; CPU rose to ${fmtPct(k.cpu)}, close to the ${pct(T_DEFAULT)} target, with p95 ${fmtLatency(k.p95)}. One machine fewer, a third less money. The scale-down is in the Events tab at the bottom.\n\nIts rule is the one Kubernetes HPA uses: instances needed = round up (current instances × current utilization ÷ target utilization).`,
+          zh: `它把实例从 3 个缩到了 2 个，CPU 利用率升到 ${fmtPct(k.cpu)}，接近目标 ${pct(T_DEFAULT)}，p95 ${fmtLatency(k.p95)}。少开一台，省了三分之一的钱。底部"事件"里能看到这次缩容。\n\n它的算法和 Kubernetes 的 HPA 一样：**需要的实例数 = 向上取整（当前实例数 × 当前利用率 ÷ 目标利用率）**。`,
+          en: `It went from 3 instances to 2; CPU rose to ${fmtPct(k.cpu)}, close to the ${pct(T_DEFAULT)} target, with p95 ${fmtLatency(k.p95)}. One machine fewer, a third less money. The scale-down is in the Events tab at the bottom.\n\nIts rule is the one Kubernetes HPA uses: **instances needed = round up (current instances × current utilization ÷ target utilization)**.`,
         };
       },
     },
@@ -221,8 +221,8 @@ export const lesson06: Lesson = {
       kind: 'read',
       title: L('为什么跟不上', 'Why it lags behind'),
       body: L(
-        `自动扩缩容是"事后反应"，从流量涨上来到新实例能干活，要走完这几步：\n\n• 发现：它每 ${PERIOD} 秒才看一次 CPU，最坏要等将近 ${PERIOD} 秒才发现。\n• 决定：算出要几个实例，开始创建。\n• 冷启动：新实例要拉镜像、启动进程、预热，${COLD} 秒后才能接流量。\n\n加起来，最快也要 ${PERIOD + COLD} 秒左右。这段时间里，原来的 2 个实例要扛 ${BASE + EXTRA}/s，CPU 早已打满，请求排队、超时、被拒绝。\n\n所以自动扩缩容管的是"几分钟级别"的变化，比如早晚高峰；对付不了秒级的突发。秒级突发要靠：平时留够余量（下一步就试）、限流和排队削峰、把冷启动做短（更小的镜像、预热好的实例池）、已知的高峰提前定时扩容（比如大促开始前）。`,
-        `Autoscaling reacts after the fact. Between traffic rising and new instances doing work, it goes through:\n\n• Noticing: it only checks CPU every ${PERIOD} seconds, so it can take almost ${PERIOD} seconds to notice.\n• Deciding: it works out how many instances it needs and starts creating them.\n• Cold start: a new instance pulls its image, starts the process and warms up; it takes ${COLD} seconds before it can serve.\n\nAll together, about ${PERIOD + COLD} seconds at best. Meanwhile the 2 existing instances face ${BASE + EXTRA}/s with their CPUs maxed out: requests queue, time out, get turned away.\n\nSo autoscaling handles changes over minutes, like the morning and evening peaks, not bursts over seconds. For those you need: enough headroom all the time (the next step tries this), rate limiting and queues to flatten spikes, shorter cold starts (smaller images, a pool of warm instances), and scheduled scaling before peaks you know about (a sale starting at 8pm).`,
+        `**自动扩缩容是"事后反应"**，从流量涨上来到新实例能干活，要走完这几步：\n\n• 发现：它每 ${PERIOD} 秒才看一次 CPU，最坏要等将近 ${PERIOD} 秒才发现。\n• 决定：算出要几个实例，开始创建。\n• 冷启动：新实例要拉镜像、启动进程、预热，${COLD} 秒后才能接流量。\n\n加起来，最快也要 ${PERIOD + COLD} 秒左右。这段时间里，原来的 2 个实例要扛 ${BASE + EXTRA}/s，CPU 早已打满，请求排队、超时、被拒绝。\n\n所以**自动扩缩容管的是"几分钟级别"的变化，比如早晚高峰；对付不了秒级的突发**。秒级突发要靠：平时留够余量（下一步就试）、限流和排队削峰、把冷启动做短（更小的镜像、预热好的实例池）、已知的高峰提前定时扩容（比如大促开始前）。`,
+        `**Autoscaling reacts after the fact.** Between traffic rising and new instances doing work, it goes through:\n\n• Noticing: it only checks CPU every ${PERIOD} seconds, so it can take almost ${PERIOD} seconds to notice.\n• Deciding: it works out how many instances it needs and starts creating them.\n• Cold start: a new instance pulls its image, starts the process and warms up; it takes ${COLD} seconds before it can serve.\n\nAll together, about ${PERIOD + COLD} seconds at best. Meanwhile the 2 existing instances face ${BASE + EXTRA}/s with their CPUs maxed out: requests queue, time out, get turned away.\n\nSo **autoscaling handles changes over minutes, like the morning and evening peaks, not bursts over seconds**. For those you need: enough headroom all the time (the next step tries this), rate limiting and queues to flatten spikes, shorter cold starts (smaller images, a pool of warm instances), and scheduled scaling before peaks you know about (a sale starting at 8pm).`,
       ),
     },
     {
@@ -273,8 +273,8 @@ export const lesson06: Lesson = {
         const a = m(c, 'spike'), b = m(c, 'spike40');
         if (!a || !b) return L('', '');
         return {
-          zh: `这次可用性 ${fmtAvail(b.avail)}，p95 ${fmtLatency(b.p95)}（上次 ${fmtAvail(a.avail)}、${fmtLatency(a.p95)}）。${reveal(c, 'predict-target', b.avail, TARGET_OPTIONS).zh}\n\n平时多开的那 1 台就是余量：尖峰来时，3 个实例的 CPU 从 30% 左右涨到 80% 上下，忙但没打满，撑到新实例上线。代价是平时多付 50% 的机器钱（2 台变 3 台）。目标利用率就是在"突发时的余量"和"平时的成本"之间取舍；多数团队设在 50%–70%，流量越突发、冷启动越慢，设得越低。`,
-          en: `Availability ${fmtAvail(b.avail)} this time, p95 ${fmtLatency(b.p95)} (last time ${fmtAvail(a.avail)} and ${fmtLatency(a.p95)}). ${reveal(c, 'predict-target', b.avail, TARGET_OPTIONS).en}\n\nThe extra instance is headroom: when the spike hits, 3 instances go from about 30% to around 80% CPU, busy but not maxed out, and hold on until new ones are up. The price is 50% more machines on a normal day (3 instead of 2). The target is a trade-off between headroom for bursts and cost on normal days; most teams pick 50%–70%, lower when traffic is spiky or cold starts are slow.`,
+          zh: `这次可用性 ${fmtAvail(b.avail)}，p95 ${fmtLatency(b.p95)}（上次 ${fmtAvail(a.avail)}、${fmtLatency(a.p95)}）。${reveal(c, 'predict-target', b.avail, TARGET_OPTIONS).zh}\n\n平时多开的那 1 台就是余量：尖峰来时，3 个实例的 CPU 从 30% 左右涨到 80% 上下，忙但没打满，撑到新实例上线。代价是平时多付 50% 的机器钱（2 台变 3 台）。**目标利用率就是在"突发时的余量"和"平时的成本"之间取舍**；多数团队设在 50%–70%，流量越突发、冷启动越慢，设得越低。`,
+          en: `Availability ${fmtAvail(b.avail)} this time, p95 ${fmtLatency(b.p95)} (last time ${fmtAvail(a.avail)} and ${fmtLatency(a.p95)}). ${reveal(c, 'predict-target', b.avail, TARGET_OPTIONS).en}\n\nThe extra instance is headroom: when the spike hits, 3 instances go from about 30% to around 80% CPU, busy but not maxed out, and hold on until new ones are up. The price is 50% more machines on a normal day (3 instead of 2). **The target is a trade-off between headroom for bursts and cost on normal days**; most teams pick 50%–70%, lower when traffic is spiky or cold starts are slow.`,
         };
       },
     },
@@ -283,8 +283,8 @@ export const lesson06: Lesson = {
       kind: 'do',
       title: L('最少实例数', 'The minimum'),
       body: L(
-        `省钱时最容易犯的错，是把"最少实例"设得太低。最少 2 个时，半夜流量很低会缩到 2 个：这时挂一台，就只剩 1 个（第 3 课的单点问题）；早上流量开始爬坡，2 个实例要扛到新实例冷启动完，很容易跟不上。\n\n点击微服务，把"最少实例"改成 ${FLOOR}，保证任何时候挂一台还有 2 台（N+1）。`,
-        `The easiest mistake when saving money is a minimum that is too low. With a minimum of 2, the service shrinks to 2 at night: lose one then and you are down to 1 (the single point of failure from lesson 3); and when traffic climbs in the morning, 2 instances must hold on until new ones finish their cold start, and often can't.\n\nClick the service and set Min instances to ${FLOOR}, so losing one always leaves 2 (N+1).`,
+        `**省钱时最容易犯的错，是把"最少实例"设得太低**。最少 2 个时，半夜流量很低会缩到 2 个：这时挂一台，就只剩 1 个（第 3 课的单点问题）；早上流量开始爬坡，2 个实例要扛到新实例冷启动完，很容易跟不上。\n\n点击微服务，把"最少实例"改成 ${FLOOR}，保证任何时候挂一台还有 2 台（N+1）。`,
+        `**The easiest mistake when saving money is a minimum that is too low**. With a minimum of 2, the service shrinks to 2 at night: lose one then and you are down to 1 (the single point of failure from lesson 3); and when traffic climbs in the morning, 2 instances must hold on until new ones finish their cold start, and often can't.\n\nClick the service and set Min instances to ${FLOOR}, so losing one always leaves 2 (N+1).`,
       ),
       highlight: (c) => (asMin(c) === FLOOR ? null : asField(c, 'asMin')),
       check: (c) => asOn(c) && asMin(c) === FLOOR,
@@ -332,8 +332,8 @@ export const lesson06: Lesson = {
       kind: 'read',
       title: L('小结', 'Wrap-up'),
       body: L(
-        `记住五点：\n\n• 自动扩缩容是事后反应：发现要一个决策周期，新实例还要冷启动，加起来将近一分钟。它管得了早晚高峰，管不了秒级突发。\n• 目标利用率是余量和成本的取舍：设低一点，平时多花钱，突发时扛得住。\n• 最少实例数要满足 N+1，否则夜里挂一台就是单点，早上爬坡也跟不上。\n• 流量有高峰低谷时，它能省下可观的钱。\n• 按 CPU 只是其中一种：I/O 密集的服务和队列消费者按请求数或积压扩，能预知的高峰用定时扩缩容提前扩好。\n\n调参时还要注意：\n• 扩容要快，缩容要慢。缩容稳定窗口设成 0，流量一波动实例数就来回抖，每次扩容都要再付一次冷启动。\n• 扩得了服务，扩不了下游。服务从 3 个扩到 10 个，连到数据库的连接池总数也变成 3 倍多（第 4 课），可能把数据库压垮。设"最多实例"时要算上下游扛得住多少。`,
-        `Five things to remember:\n\n• Autoscaling reacts after the fact: one decision period to notice, then a cold start, close to a minute in all. It handles daily peaks, not bursts over seconds.\n• The target utilization trades headroom for cost: lower costs more on normal days and survives bursts.\n• The minimum must cover N+1, or losing one at night leaves a single point of failure and the morning climb outruns it.\n• When traffic has peaks and troughs, it saves real money.\n• CPU is only one trigger: scale I/O-bound services and queue consumers on requests or backlog, and scale ahead of predictable peaks on a schedule.\n\nWhen tuning it, also:\n• Scale up fast, scale down slowly. With the scale-down stabilization at 0, the count flaps with every wobble in traffic, and every scale-up pays the cold start again.\n• You can scale the service, not what it depends on. Going from 3 to 10 instances multiplies the connection pools to the database by more than 3 (lesson 4) and can bring the database down. Set the maximum with what the downstream can take in mind.`,
+        `记住五点：\n\n• **自动扩缩容是事后反应**：发现要一个决策周期，新实例还要冷启动，加起来将近一分钟。它管得了早晚高峰，管不了秒级突发。\n• **目标利用率是余量和成本的取舍**：设低一点，平时多花钱，突发时扛得住。\n• **最少实例数要满足 N+1**，否则夜里挂一台就是单点，早上爬坡也跟不上。\n• **流量有高峰低谷时，它能省下可观的钱**。\n• **按 CPU 只是其中一种**：I/O 密集的服务和队列消费者按请求数或积压扩，能预知的高峰用定时扩缩容提前扩好。\n\n调参时还要注意：\n• **扩容要快，缩容要慢**。缩容稳定窗口设成 0，流量一波动实例数就来回抖，每次扩容都要再付一次冷启动。\n• **扩得了服务，扩不了下游**。服务从 3 个扩到 10 个，连到数据库的连接池总数也变成 3 倍多（第 4 课），可能把数据库压垮。设"最多实例"时要算上下游扛得住多少。`,
+        `Five things to remember:\n\n• **Autoscaling reacts after the fact**: one decision period to notice, then a cold start, close to a minute in all. It handles daily peaks, not bursts over seconds.\n• **The target utilization trades headroom for cost**: lower costs more on normal days and survives bursts.\n• **The minimum must cover N+1**, or losing one at night leaves a single point of failure and the morning climb outruns it.\n• **When traffic has peaks and troughs, it saves real money**.\n• **CPU is only one trigger**: scale I/O-bound services and queue consumers on requests or backlog, and scale ahead of predictable peaks on a schedule.\n\nWhen tuning it, also:\n• **Scale up fast, scale down slowly**. With the scale-down stabilization at 0, the count flaps with every wobble in traffic, and every scale-up pays the cold start again.\n• **You can scale the service, not what it depends on**. Going from 3 to 10 instances multiplies the connection pools to the database by more than 3 (lesson 4) and can bring the database down. Set the maximum with what the downstream can take in mind.`,
       ),
     },
   ],
